@@ -1,0 +1,10 @@
+{
+  "name": "@inventoryfy/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    ".": "./index.ts"
+  }
+}

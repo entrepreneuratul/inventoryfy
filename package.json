@@ -1,0 +1,16 @@
+{
+  "name": "inventoryfy",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Multi-tenant e-commerce inventory management system",
+  "scripts": {
+    "dev:api": "pnpm --filter @inventoryfy/api dev",
+    "dev:web": "pnpm --filter @inventoryfy/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.9"
+}

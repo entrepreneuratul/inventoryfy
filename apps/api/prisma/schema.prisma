@@ -1,0 +1,76 @@
+// Inventoryfy — Prisma schema
+// Phase 1: tenancy skeleton only (Business, User, Membership).
+// Domain tables (catalog, warehouses, orders, etc.) are added in later phases.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A tenant. Each business is an isolated inventory/order/financial scope.
+/// An "owner" user can hold OWNER memberships on several businesses at once
+/// (drives the aggregate owner dashboard); a "staff" user is typically
+/// scoped to a single business via one STAFF membership.
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  type      String? // free-form business category shown in the mockup (e.g. "Retail", "Wholesale")
+  currency  String   @default("USD")
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+
+  @@map("businesses")
+}
+
+/// A login-capable account. Auth lives here; tenant access lives on Membership.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+enum MembershipRole {
+  OWNER
+  STAFF
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+/// Join table: which businesses a user can access, and with what role.
+/// Granular per-capability access (the mockup's "capability matrix") is
+/// layered on top of `role` in Phase 9 — kept out of the skeleton for now.
+model Membership {
+  id         String           @id @default(cuid())
+  userId     String
+  businessId String
+  role       MembershipRole
+  status     MembershipStatus @default(ACTIVE)
+  invitedAt  DateTime?
+  joinedAt   DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@map("memberships")
+}

@@ -1,0 +1,42 @@
+# Render Blueprint — deploy config stub (Phase 1). Not deployed yet; wired
+# up for real in Phase 10 once every domain module exists. Kept here early
+# so the repo layout (rootDir per service) is settled from the start.
+#
+# Docs: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: inventoryfy-db
+    plan: starter
+    databaseName: inventoryfy
+    user: inventoryfy
+
+services:
+  - type: web
+    name: inventoryfy-api
+    runtime: node
+    rootDir: apps/api
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @inventoryfy/api exec prisma migrate deploy && pnpm --filter @inventoryfy/api build
+    startCommand: node dist/src/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inventoryfy-db
+          property: connectionString
+      - key: WEB_ORIGIN
+        sync: false # set to the deployed inventoryfy-web URL
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: web
+    name: inventoryfy-web
+    runtime: node
+    rootDir: apps/web
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @inventoryfy/web build
+    startCommand: pnpm --filter @inventoryfy/web start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false # set to the deployed inventoryfy-api URL
