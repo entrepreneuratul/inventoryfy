@@ -26,7 +26,7 @@ export interface ProductSummary {
   sku: string; // the first/default variant's SKU
   category: string | null;
   variantCount: number;
-  stock: number; // sum across variants
+  stock: number; // sum across variants; for a bundle, real component-derived availability instead
   status: StockStatus;
   isBundle: boolean;
 }

@@ -315,15 +315,19 @@ single source of truth for stock; a connected storefront never owns it.
 - **Bundles report real, computed availability — not their own stale
   stock column.** A bundle Product's own `ProductVariant.stock` is never
   meaningful (a bundle sale decrements its components, never its own
-  row — see `stock-fulfillment.ts`'s doc comments), so both the catalog
-  endpoint and the outbound webhook use `computeBundleAvailableStock()`
-  (`min(componentStock ÷ qty needed)` across components) instead. And
-  when a *shared* component's stock changes — one item used by several
-  bundles, e.g. a samagri item used in three different festival kits —
-  every bundle that includes it gets its own recomputed `inventory.updated`
-  event too, not just the component's own SKU. This is what makes a
-  storefront selling bundles (not just flat SKUs) work correctly, not
-  just one selling single products.
+  row — see `stock-fulfillment.ts`'s doc comments), so the integrations
+  catalog endpoint, the outbound webhook, *and* Inventoryfy's own Catalog
+  list/detail pages (`ProductsService.list()`/`get()`) all use
+  `computeBundleAvailableStock()` (`min(componentStock ÷ qty needed)`
+  across components) instead of the raw column — a bundle like
+  `KIT-001`/"Starter Toolkit" shows its real sellable count and status in
+  the app's own UI, not a permanent 0/`OUT_OF_STOCK`. And when a *shared*
+  component's stock changes — one item used by several bundles, e.g. a
+  samagri item used in three different festival kits — every bundle that
+  includes it gets its own recomputed `inventory.updated` event too, not
+  just the component's own SKU. This is what makes a storefront (or
+  Inventoryfy itself) selling bundles work correctly, not just one
+  selling single products.
 - **Idempotent inbound, retried outbound.** A redelivered order webhook
   with the same `externalOrderId` is a no-op (a real unique constraint on
   `Order.(sourceConnectionId, externalOrderId)`, not just an

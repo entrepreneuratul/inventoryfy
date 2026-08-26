@@ -13,6 +13,7 @@ import type {
   VariantOption,
 } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
+import { computeBundleAvailableStock } from '../orders/stock-fulfillment';
 import type { Prisma } from '../../generated/prisma/client';
 
 const PRODUCT_WITH_VARIANTS = {
@@ -54,7 +55,8 @@ export class ProductsService {
       ...PRODUCT_WITH_VARIANTS,
       orderBy: { name: 'asc' },
     });
-    return products.map(toSummary);
+    const bundleStock = await this.computeBundleStockMap(products);
+    return products.map((p) => toSummary(p, bundleStock.get(p.id)));
   }
 
   async get(businessId: string, productId: string): Promise<ProductDetail> {
@@ -63,8 +65,9 @@ export class ProductsService {
       where: { bundleProductId: productId },
       include: { componentProduct: true },
     });
+    const bundleStock = product.isBundle ? await computeBundleAvailableStock(this.prisma, product.id) : undefined;
     return {
-      ...toSummary(product),
+      ...toSummary(product, bundleStock),
       description: product.description,
       lowStockThreshold: product.lowStockThreshold,
       taxRatePercent: product.taxRatePercent,
@@ -244,6 +247,18 @@ export class ProductsService {
     return { imported, errors };
   }
 
+  /** Batch-computes real component-derived availability for every bundle
+   * product in the given set — a bundle's own ProductVariant.stock is
+   * never meaningful (see computeBundleAvailableStock's doc comment), so
+   * list()/get() must substitute this instead of the raw column. */
+  private async computeBundleStockMap(products: { id: string; isBundle: boolean }[]): Promise<Map<string, number>> {
+    const bundleIds = products.filter((p) => p.isBundle).map((p) => p.id);
+    const entries = await Promise.all(
+      bundleIds.map(async (id) => [id, await computeBundleAvailableStock(this.prisma, id)] as const),
+    );
+    return new Map(entries);
+  }
+
   private async findOwned(businessId: string, productId: string): Promise<ProductWithVariants> {
     const product = await this.prisma.product.findUnique({ where: { id: productId }, ...PRODUCT_WITH_VARIANTS });
     if (!product || product.businessId !== businessId) throw new NotFoundException('Product not found');
@@ -267,8 +282,13 @@ function stockStatus(stock: number, threshold: number): StockStatus {
   return 'IN_STOCK';
 }
 
-function toSummary(product: ProductWithVariants): ProductSummary {
-  const stock = product.variants.reduce((sum, v) => sum + v.stock, 0);
+/** `bundleStock`, when given, overrides the raw variant-sum for a bundle
+ * product with its real component-derived availability (see
+ * computeBundleAvailableStock's doc comment) — callers compute it via
+ * ProductsService.computeBundleStockMap or computeBundleAvailableStock
+ * directly since it needs a Prisma lookup this function can't do itself. */
+function toSummary(product: ProductWithVariants, bundleStock?: number): ProductSummary {
+  const stock = product.isBundle ? (bundleStock ?? 0) : product.variants.reduce((sum, v) => sum + v.stock, 0);
   return {
     id: product.id,
     name: product.name,
