@@ -2,7 +2,7 @@ import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Business } from '../generated/prisma/client';
-import { MembershipRole, MembershipStatus } from '../generated/prisma/enums';
+import { MembershipRole, MembershipStatus, TeamRole } from '../generated/prisma/enums';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -43,6 +43,7 @@ async function main() {
         userId: owner.id,
         businessId: business.id,
         role: MembershipRole.OWNER,
+        teamRole: TeamRole.OWNER,
         status: MembershipStatus.ACTIVE,
         joinedAt: new Date(),
       },
@@ -62,6 +63,7 @@ async function main() {
       userId: staff.id,
       businessId: businesses[0].id,
       role: MembershipRole.STAFF,
+      teamRole: TeamRole.SALES_STAFF,
       status: MembershipStatus.ACTIVE,
       joinedAt: new Date(),
     },

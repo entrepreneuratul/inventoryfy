@@ -6,6 +6,8 @@ import { BusinessAccessGuard } from '../auth/guards/business-access.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CapabilityGuard } from '../auth/guards/capability.guard';
+import { RequireCapability } from '../auth/decorators/require-capability.decorator';
 import type { RequestUser } from '../auth/types';
 import { MembershipRole, MembershipStatus } from '../../generated/prisma/enums';
 import type { ValuationMethod } from '@inventoryfy/shared-types';
@@ -33,13 +35,15 @@ export class FinancialsController {
     return this.financials.landedCost(businessId, productId);
   }
 
-  @UseGuards(JwtAuthGuard, BusinessAccessGuard)
+  @UseGuards(JwtAuthGuard, BusinessAccessGuard, CapabilityGuard)
+  @RequireCapability('VIEW_FINANCIALS')
   @Get('businesses/:businessId/financials')
   forBusiness(@Param('businessId') businessId: string) {
     return this.financials.forBusiness(businessId);
   }
 
-  @UseGuards(JwtAuthGuard, BusinessAccessGuard)
+  @UseGuards(JwtAuthGuard, BusinessAccessGuard, CapabilityGuard)
+  @RequireCapability('VIEW_FINANCIALS')
   @Get('businesses/:businessId/financials/export')
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="financials.csv"')

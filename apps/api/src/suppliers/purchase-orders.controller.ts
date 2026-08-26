@@ -3,6 +3,8 @@ import { PurchaseOrdersService } from './purchase-orders.service';
 import { CreatePurchaseOrderDto, ReceivePoDto, UpdateBillStatusDto } from './dto/supplier.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessAccessGuard } from '../auth/guards/business-access.guard';
+import { CapabilityGuard } from '../auth/guards/capability.guard';
+import { RequireCapability } from '../auth/decorators/require-capability.decorator';
 
 @UseGuards(JwtAuthGuard, BusinessAccessGuard)
 @Controller('businesses/:businessId')
@@ -29,6 +31,8 @@ export class PurchaseOrdersController {
     return this.pos.get(businessId, poId);
   }
 
+  @UseGuards(CapabilityGuard)
+  @RequireCapability('APPROVE_POS')
   @Post('purchase-orders/:poId/approve')
   approve(@Param('businessId') businessId: string, @Param('poId') poId: string) {
     return this.pos.approve(businessId, poId);

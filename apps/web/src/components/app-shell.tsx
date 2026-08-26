@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Barcode,
+  Bell,
   Boxes,
   ChevronDown,
   BarChart3,
   ClipboardList,
   DollarSign,
+  History,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -17,7 +19,9 @@ import {
   ScanBarcode,
   ShoppingCart,
   Truck,
+  Users,
 } from 'lucide-react';
+import { ROLE_LABELS } from '@inventoryfy/shared-types';
 import { useAuth } from './auth-provider';
 import { ThemeToggle } from './theme-toggle';
 
@@ -56,6 +60,14 @@ const NAV_SECTIONS = [
       { label: 'Returns', href: '/returns', icon: RotateCcw },
     ],
   },
+  {
+    title: 'Admin',
+    items: [
+      { label: 'Team', href: '/team', icon: Users },
+      { label: 'Notifications', href: '/notifications', icon: Bell },
+      { label: 'Audit log', href: '/audit', icon: History },
+    ],
+  },
 ];
 
 function initials(name: string) {
@@ -70,7 +82,7 @@ function initials(name: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, role, businesses, activeBusinessId, setActiveBusinessId, logout } = useAuth();
+  const { user, role, teamRole, businesses, activeBusinessId, setActiveBusinessId, logout } = useAuth();
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const isOwner = role === 'OWNER';
@@ -148,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div style={{ padding: '14px 20px 0', marginTop: 8, borderTop: '2px solid var(--color-divider)' }}>
-          <span className="tag tag-outline mf-label">{role === 'OWNER' ? 'Owner' : 'Staff'}</span>
+          <span className="tag tag-outline mf-label">{teamRole ? ROLE_LABELS[teamRole] : role === 'OWNER' ? 'Owner' : 'Staff'}</span>
         </div>
       </aside>
 

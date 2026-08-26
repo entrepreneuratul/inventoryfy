@@ -226,6 +226,64 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   delivery is infrastructure that lands with Notifications (Phase 9);
   the UI says so rather than implying it already sends.
 
+## Team, notifications & audit model
+
+- **Two roles, on purpose, not by accident.** `Membership.role`
+  (OWNER/STAFF) is the Phase 2 login/tenancy role and stays untouched —
+  it decides which login mode a user gets and gates the
+  `BusinessAccessGuard`/owner-aggregate split used everywhere from
+  Financials to Reports. `Membership.teamRole` (OWNER, Business Admin,
+  Inventory Manager, Sales Staff, Accountant) is new, orthogonal, and
+  only decides fine-grained capabilities inside a business. A STAFF
+  login with `teamRole: ACCOUNTANT` still logs in the STAFF way; it
+  just can't touch inventory. Keeping these separate meant Phase 9
+  never had to touch the Phase 2 auth foundation to add a 5-role
+  capability model on top of it.
+- **Capability enforcement is representative, not exhaustive.** A
+  `CapabilityGuard` + `@RequireCapability(...)` decorator pair checks
+  `req.user.teamRole` (re-derived from the DB on every request, same
+  as the rest of the auth model — a suspended or re-roled user is cut
+  off immediately, no re-login needed) against a five-capability
+  matrix. It's wired onto a deliberately chosen high-value set of
+  routes — PO approval, Financials viewing, Catalog mutations, and the
+  new Team endpoints — rather than retrofitted across all ~80 existing
+  endpoints. That's a scope call, made explicitly: the guard is a
+  no-op on any route without `@RequireCapability`, so it's safe to
+  extend to more routes later without changing its behavior anywhere
+  it's already applied.
+- **`@inventoryfy/shared-types` has no build step** (`"main":
+  "src/index.ts"`) — Next.js bundles that fine at runtime, but Nest's
+  `nest build` does not bundle `node_modules`, so a real runtime
+  `import { X } from '@inventoryfy/shared-types'` in backend code
+  breaks the compiled `dist/` with `ERR_MODULE_NOT_FOUND`. Only
+  `import type` (erased at compile time) is safe from that package on
+  the backend. `CAPABILITY_MATRIX` and `ALERT_TYPE_LABELS` are small
+  runtime constants the backend genuinely needs, so each is duplicated
+  locally (`apps/api/src/auth/capability-matrix.ts`, a local const in
+  `notifications.service.ts`) with a comment pointing back at the
+  shared-types original to keep them in sync by hand.
+- **Audit log is a global interceptor, not scattered logging calls.**
+  `AuditInterceptor` is registered once via `APP_INTERCEPTOR` and
+  fires after every mutating request (`POST`/`PATCH`/`PUT`/`DELETE`)
+  under `/businesses/:businessId/...`, deriving `entity` from the
+  route path and `userName`/`userEmail`/`businessId` from the already-
+  authenticated request — no per-endpoint instrumentation anywhere
+  else in the codebase. Write failures are caught and logged rather
+  than allowed to fail the request they're auditing.
+- **Notification "digest" is honest about what it does.** `Send
+  digest now` only evaluates alert types it can actually compute from
+  real current state — LOW_STOCK and OUT_OF_STOCK, from live product
+  stock — and only queues a `NotificationLogEntry` per ACTIVE
+  membership whose `teamRole` is in that alert's configured recipient
+  list. NEW_ORDER, SUPPLIER_BILL_OVERDUE, and PAYMENT_DUE are modeled
+  in the schema and configurable in the UI but deliberately not wired
+  to fire automatically — that needs event hooks into many existing
+  mutation paths across Orders/Suppliers/Financials, which is scope
+  for a later pass, not Phase 9. `SENT` means "channel enabled and an
+  eligible recipient was found," not "delivered by real email/WhatsApp
+  infrastructure" — there is none yet, and the UI doesn't claim
+  otherwise.
+
 ## Status
 
 Building phase by phase — see the implementation plan for the full
@@ -241,3 +299,4 @@ Integrations/Deploy).
 **Phase 6 (Orders & Returns): done.**
 **Phase 7 (Financials): done.**
 **Phase 8 (Reports & Dashboards): done.**
+**Phase 9 (Team, Notifications & Audit): done.**

@@ -1,13 +1,15 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { AuthUser, BusinessSummary, LoginRequest, MembershipRole } from '@inventoryfy/shared-types';
+import type { AuthUser, BusinessSummary, Capability, LoginRequest, MembershipRole, TeamRole } from '@inventoryfy/shared-types';
+import { CAPABILITY_MATRIX } from '@inventoryfy/shared-types';
 import { apiFetch, ApiError } from '@/lib/api';
 
 interface StoredAuth {
   accessToken: string;
   user: AuthUser;
   role: MembershipRole;
+  teamRole: TeamRole;
   businesses: BusinessSummary[];
 }
 
@@ -16,6 +18,12 @@ interface AuthContextValue {
   accessToken: string | null;
   user: AuthUser | null;
   role: MembershipRole | null;
+  teamRole: TeamRole | null;
+  /** Whether the current session's team role has a given capability —
+   * mirrors CAPABILITY_MATRIX, the same table the backend's
+   * CapabilityGuard enforces. UI-only convenience; the backend is always
+   * the real gate. */
+  can: (capability: Capability) => boolean;
   businesses: BusinessSummary[];
   /** The business currently being viewed. Fixed for staff; switchable for owners. */
   activeBusinessId: string | null;
@@ -43,11 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const stored: StoredAuth = JSON.parse(raw);
 
-    apiFetch<{ user: AuthUser; role: MembershipRole; businesses: BusinessSummary[] }>('/auth/me', {
+    apiFetch<{ user: AuthUser; role: MembershipRole; teamRole: TeamRole; businesses: BusinessSummary[] }>('/auth/me', {
       token: stored.accessToken,
     })
       .then((me) => {
-        const refreshed: StoredAuth = { ...stored, user: me.user, role: me.role, businesses: me.businesses };
+        const refreshed: StoredAuth = { ...stored, user: me.user, role: me.role, teamRole: me.teamRole, businesses: me.businesses };
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(refreshed));
         setAuth(refreshed);
         setActiveBusinessIdState(refreshed.businesses[0]?.id ?? null);
@@ -74,19 +82,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus('unauthenticated');
   }, []);
 
+  const can = useCallback(
+    (capability: Capability) => (auth ? CAPABILITY_MATRIX[capability].includes(auth.teamRole) : false),
+    [auth],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
       accessToken: auth?.accessToken ?? null,
       user: auth?.user ?? null,
       role: auth?.role ?? null,
+      teamRole: auth?.teamRole ?? null,
+      can,
       businesses: auth?.businesses ?? [],
       activeBusinessId,
       setActiveBusinessId: setActiveBusinessIdState,
       login,
       logout,
     }),
-    [status, auth, activeBusinessId, login, logout],
+    [status, auth, can, activeBusinessId, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

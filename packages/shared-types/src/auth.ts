@@ -1,3 +1,5 @@
+import type { TeamRole } from './team';
+
 export type MembershipRole = 'OWNER' | 'STAFF';
 
 export interface BusinessSummary {
@@ -16,6 +18,10 @@ export interface AuthUser {
 export interface MeResponse {
   user: AuthUser;
   role: MembershipRole;
+  /** The finer-grained capability role within the current session's
+   * business. OWNER logins are always 'OWNER'; STAFF logins carry
+   * whatever team role their membership was invited with. */
+  teamRole: TeamRole;
   /** OWNER: every business they hold an active OWNER membership on.
    *  STAFF: the single business they authenticated into. */
   businesses: BusinessSummary[];

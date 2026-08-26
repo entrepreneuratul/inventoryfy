@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MembershipRole, MembershipStatus } from '../../../generated/prisma/enums';
+import { MembershipRole, MembershipStatus, TeamRole } from '../../../generated/prisma/enums';
 import { JwtPayload, RequestUser } from '../types';
 
 @Injectable()
@@ -37,7 +37,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (!membership || membership.role !== MembershipRole.STAFF || membership.status !== MembershipStatus.ACTIVE) {
         throw new UnauthorizedException('Staff access to this business is no longer active');
       }
-      return { id: user.id, email: user.email, name: user.name, role: MembershipRole.STAFF, businessId: payload.businessId };
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: MembershipRole.STAFF,
+        teamRole: membership.teamRole,
+        businessId: payload.businessId,
+      };
     }
 
     // OWNER: must still hold at least one active OWNER membership.
@@ -46,6 +53,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
     if (!ownsAny) throw new UnauthorizedException('Owner access is no longer active');
 
-    return { id: user.id, email: user.email, name: user.name, role: MembershipRole.OWNER, businessId: null };
+    return { id: user.id, email: user.email, name: user.name, role: MembershipRole.OWNER, teamRole: TeamRole.OWNER, businessId: null };
   }
 }

@@ -11,6 +11,9 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { OrdersModule } from './orders/orders.module';
 import { FinancialsModule } from './financials/financials.module';
 import { ReportsModule } from './reports/reports.module';
+import { TeamModule } from './team/team.module';
+import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -26,6 +29,9 @@ import { ReportsModule } from './reports/reports.module';
     OrdersModule,
     FinancialsModule,
     ReportsModule,
+    TeamModule,
+    AuditModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

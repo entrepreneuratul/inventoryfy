@@ -36,22 +36,25 @@ model Business {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships      Membership[]
-  categories       Category[]
-  products         Product[]
-  variants         ProductVariant[]
-  warehouses       Warehouse[]
-  warehouseStocks  WarehouseStock[]
-  transfers        Transfer[]
-  cycleCounts      CycleCount[]
-  batches          Batch[]
-  serialNumbers    SerialNumber[]
-  suppliers        Supplier[]
-  supplierProducts SupplierProduct[]
-  purchaseOrders   PurchaseOrder[]
-  orders           Order[]
-  returns          Return[]
-  scheduledReports ScheduledReport[]
+  memberships            Membership[]
+  categories             Category[]
+  products               Product[]
+  variants               ProductVariant[]
+  warehouses             Warehouse[]
+  warehouseStocks        WarehouseStock[]
+  transfers              Transfer[]
+  cycleCounts            CycleCount[]
+  batches                Batch[]
+  serialNumbers          SerialNumber[]
+  suppliers              Supplier[]
+  supplierProducts       SupplierProduct[]
+  purchaseOrders         PurchaseOrder[]
+  orders                 Order[]
+  returns                Return[]
+  scheduledReports       ScheduledReport[]
+  auditLogEntries        AuditLogEntry[]
+  alertChannelSettings   AlertChannelSetting[]
+  notificationLogEntries NotificationLogEntry[]
 
   @@map("businesses")
 }
@@ -81,14 +84,26 @@ enum MembershipStatus {
   SUSPENDED
 }
 
+enum TeamRole {
+  OWNER
+  BUSINESS_ADMIN
+  INVENTORY_MANAGER
+  SALES_STAFF
+  ACCOUNTANT
+}
+
 /// Join table: which businesses a user can access, and with what role.
-/// Granular per-capability access (the mockup's "capability matrix") is
-/// layered on top of `role` in Phase 9 — kept out of the skeleton for now.
 model Membership {
   id         String           @id @default(cuid())
   userId     String
   businessId String
   role       MembershipRole
+  /// Finer-grained capability role (Phase 9), orthogonal to `role`: an
+  /// OWNER membership is always teamRole=OWNER; a STAFF membership picks
+  /// one of the other four at invite time. Drives the CAPABILITY_MATRIX
+  /// in @inventoryfy/shared-types, not the login-mode / business-access
+  /// logic that `role` still owns.
+  teamRole   TeamRole         @default(SALES_STAFF)
   status     MembershipStatus @default(ACTIVE)
   invitedAt  DateTime?
   joinedAt   DateTime?
@@ -530,4 +545,78 @@ model ScheduledReport {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@map("scheduled_reports")
+}
+
+// ─── Team, Notifications & Audit (Phase 9) ───────────────────────────────
+
+/// A generic mutating-request trail, written by a global interceptor
+/// rather than instrumented into every service method by hand — every
+/// POST/PATCH/PUT/DELETE under /businesses/:businessId/* gets one row.
+model AuditLogEntry {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String?
+  userName   String
+  userEmail  String
+  action     String // HTTP method, e.g. "POST"
+  entity     String // first meaningful route segment, e.g. "products"
+  path       String
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@map("audit_log_entries")
+}
+
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+  NEW_ORDER
+  SUPPLIER_BILL_OVERDUE
+  PAYMENT_DUE
+}
+
+/// Per-business, per-alert-type channel configuration. Lazily defaulted
+/// (matching the mockup's demo values) the first time a business's
+/// settings are read, rather than requiring a seed step.
+model AlertChannelSetting {
+  id              String     @id @default(cuid())
+  businessId      String
+  alertType       AlertType
+  emailEnabled    Boolean    @default(true)
+  whatsappEnabled Boolean    @default(false)
+  recipientRoles  TeamRole[]
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, alertType])
+  @@map("alert_channel_settings")
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationDeliveryStatus {
+  SENT
+  FAILED
+}
+
+/// A record of what *would* have been sent for a given alert — there's no
+/// SMTP/WhatsApp integration behind this, so SENT means "a channel was
+/// enabled and had at least one eligible recipient", not "delivered".
+model NotificationLogEntry {
+  id         String                     @id @default(cuid())
+  businessId String
+  alertType  AlertType
+  channel    NotificationChannel
+  recipient  String
+  status     NotificationDeliveryStatus
+  createdAt  DateTime                   @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("notification_log_entries")
 }
