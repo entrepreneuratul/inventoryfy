@@ -1,6 +1,8 @@
 export type OrderChannel = 'WEBSITE' | 'AMAZON' | 'FLIPKART';
 export type OrderStatus = 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'BACKORDERED';
 
+export type OrderPaymentStatus = 'PAID' | 'UNPAID';
+
 export interface OrderRow {
   id: string;
   displayId: string;
@@ -8,6 +10,7 @@ export interface OrderRow {
   customer: string;
   totalFmt: string;
   status: OrderStatus;
+  paymentStatus: OrderPaymentStatus;
   note: string | null;
   date: string;
   showReturn: boolean;
@@ -31,6 +34,7 @@ export interface OrderDetail {
   channel: OrderChannel;
   customer: string;
   status: OrderStatus;
+  paymentStatus: OrderPaymentStatus;
   note: string | null;
   date: string;
   warehouseId: string;

@@ -7,6 +7,7 @@ import {
   Boxes,
   ChevronDown,
   ClipboardList,
+  DollarSign,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -25,7 +26,10 @@ import { ThemeToggle } from './theme-toggle';
 const NAV_SECTIONS = [
   {
     title: 'General',
-    items: [{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }],
+    items: [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Financials', href: '/financials', icon: DollarSign },
+    ],
   },
   {
     title: 'Inventory',

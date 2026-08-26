@@ -55,6 +55,11 @@ export class UpdateProductDto {
   @IsInt()
   @Min(0)
   lowStockThreshold?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  taxRatePercent?: number;
 }
 
 export class CreateVariantDto {

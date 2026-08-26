@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto } from './dto/order.dto';
+import { CreateOrderDto, SetPaymentStatusDto } from './dto/order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessAccessGuard } from '../auth/guards/business-access.guard';
 
@@ -37,5 +37,14 @@ export class OrdersController {
   @Post(':orderId/cancel')
   cancel(@Param('businessId') businessId: string, @Param('orderId') orderId: string) {
     return this.orders.cancel(businessId, orderId);
+  }
+
+  @Post(':orderId/payment-status')
+  setPaymentStatus(
+    @Param('businessId') businessId: string,
+    @Param('orderId') orderId: string,
+    @Body() dto: SetPaymentStatusDto,
+  ) {
+    return this.orders.setPaymentStatus(businessId, orderId, dto.paymentStatus);
   }
 }

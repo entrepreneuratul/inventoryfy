@@ -157,7 +157,8 @@ export class PurchaseOrdersService {
     await this.findOwned(businessId, poId);
     const updated = await this.prisma.purchaseOrder.update({
       where: { id: poId },
-      data: { billStatus },
+      // Dates the "Supplier payment" row in the Financials transaction log.
+      data: { billStatus, paidAt: billStatus === BillStatus.PAID ? new Date() : null },
       include: { supplier: true, items: { include: { variant: { include: { product: true } } } } },
     });
     return toDetail(updated);

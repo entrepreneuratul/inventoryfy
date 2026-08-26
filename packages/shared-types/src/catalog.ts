@@ -34,6 +34,8 @@ export interface ProductSummary {
 export interface ProductDetail extends ProductSummary {
   description: string | null;
   lowStockThreshold: number;
+  /// GST/sales-tax rate applied to this product's line items (Phase 7).
+  taxRatePercent: number;
   variants: ProductVariant[];
   bundleComponents: BundleComponentRow[];
 }
@@ -54,6 +56,7 @@ export interface UpdateProductRequest {
   categoryId?: string | null;
   description?: string | null;
   lowStockThreshold?: number;
+  taxRatePercent?: number;
 }
 
 export interface CreateVariantRequest {

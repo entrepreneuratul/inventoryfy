@@ -165,6 +165,39 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   restock-or-scrap; restocking reuses the same bundle-aware stock helper
   once more, into a warehouse the caller chooses.
 
+## Financials model
+
+- **Valuation (FIFO/LIFO/Weighted-avg)** is computed from real cost
+  layers built out of `PurchaseOrderItem.receivedQty` history (oldest →
+  newest), not stored: FIFO values current stock as the *newest* layers
+  (oldest assumed sold first), LIFO as the *oldest* layers (newest
+  assumed sold first), weighted-avg blends every layer's cost across all
+  current stock. Stock with no PO-receipt history (predates purchasing,
+  or was seeded directly) falls back to the linked supplier's quoted
+  cost, or $0 with an explicit on-screen note if there's no supplier
+  link — never silently fabricated.
+- **Landed cost** = the same weighted-average base cost + fixed
+  freight (8%) / duty (5%) percentages.
+- **COGS** (for P&L) uses the weighted-average unit cost per product,
+  applied to every DELIVERED order line, net of any item that was later
+  `REFUNDED` (returns reverse both revenue and COGS recognition).
+- **AP** = open (`UNPAID`/`PARTIAL`) purchase-order bill totals.
+  **AR** = `DELIVERED`-or-later orders marked `UNPAID` (the "invoiced
+  B2B customer" case — most orders default `PAID`, matching upfront
+  marketplace/website checkout).
+- **GST breakdown** groups delivered, non-refunded order lines by their
+  product's `taxRatePercent` (editable per product, default 0).
+- The transaction log merges three real event streams — Sales
+  (delivered orders), Refunds (refunded returns), Supplier payments
+  (POs marked `PAID`) — sorted by date, capped at 50 rows.
+- `GET /financials/summary` is the one endpoint in the app that isn't
+  `:businessId`-scoped: it's owner-only (`RolesGuard`) and aggregates
+  `forBusiness()` across every business the caller owns, the same
+  authorization shape as `/auth/me`. Every other Financials route,
+  and single-business callers of the aggregate logic, share the exact
+  same `forBusinesses()` code path — an array of one business is just
+  the degenerate case.
+
 ## Status
 
 Building phase by phase — see the implementation plan for the full
@@ -178,3 +211,4 @@ Integrations/Deploy).
 **Phase 4 (Warehouses & Inventory): done.**
 **Phase 5 (Suppliers & Purchase Orders): done.**
 **Phase 6 (Orders & Returns): done.**
+**Phase 7 (Financials): done.**

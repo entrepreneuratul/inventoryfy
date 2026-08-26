@@ -128,6 +128,8 @@ model Product {
   /// of tracking stock on the bundle itself.
   isBundle          Boolean  @default(false)
   lowStockThreshold Int      @default(10)
+  /// GST/sales-tax rate applied to this product's line items (Phase 7).
+  taxRatePercent    Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -382,6 +384,9 @@ model PurchaseOrder {
   updatedAt    DateTime   @updatedAt
   sentAt       DateTime?
   receivedAt   DateTime?
+  /// Set when billStatus transitions to PAID — dates the "Supplier
+  /// payment" row in the transaction log.
+  paidAt       DateTime?
 
   business Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
   supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
@@ -421,18 +426,30 @@ enum OrderStatus {
   BACKORDERED
 }
 
+/// Whether the customer has paid yet. Defaults PAID (the common case —
+/// marketplace/website checkouts are paid upfront); flip to UNPAID for
+/// invoiced/credit B2B orders, which is what feeds Accounts Receivable.
+enum OrderPaymentStatus {
+  PAID
+  UNPAID
+}
+
 model Order {
-  id          String       @id @default(cuid())
-  businessId  String
+  id            String             @id @default(cuid())
+  businessId    String
   /// Business-scoped sequential number for the human-facing "ORD-5001" id.
-  number      Int
-  channel     OrderChannel
-  customer    String
-  status      OrderStatus  @default(PROCESSING)
-  note        String?
-  warehouseId String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  number        Int
+  channel       OrderChannel
+  customer      String
+  status        OrderStatus        @default(PROCESSING)
+  paymentStatus OrderPaymentStatus @default(PAID)
+  note          String?
+  warehouseId   String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  shippedAt     DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
 
   business  Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
   warehouse Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)

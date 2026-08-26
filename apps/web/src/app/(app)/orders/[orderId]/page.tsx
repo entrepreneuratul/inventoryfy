@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import type { OrderDetail } from '@inventoryfy/shared-types';
+import type { OrderDetail, OrderPaymentStatus } from '@inventoryfy/shared-types';
 import { useAuth } from '@/components/auth-provider';
 import { apiFetch, ApiError } from '@/lib/api';
 import { channelLabel, orderStatusBadge } from '@/lib/order-ui';
@@ -37,6 +37,21 @@ export default function OrderDetailPage({ params }: PageProps<'/orders/[orderId]
       load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : `Failed to ${action} order`);
+    }
+  }
+
+  async function setPaymentStatus(paymentStatus: OrderPaymentStatus) {
+    if (!effectiveBusinessId) return;
+    setActionError(null);
+    try {
+      await apiFetch(`/businesses/${effectiveBusinessId}/orders/${orderId}/payment-status`, {
+        method: 'POST',
+        body: { paymentStatus },
+        token: accessToken,
+      });
+      load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Failed to update payment status');
     }
   }
 
@@ -89,8 +104,20 @@ export default function OrderDetailPage({ params }: PageProps<'/orders/[orderId]
           )}
         </div>
       </div>
-      <div className="text-muted" style={{ fontSize: 13, marginBottom: 24 }}>
+      <div className="text-muted" style={{ fontSize: 13, marginBottom: 4 }}>
         {channelLabel(order.channel)} · {order.customer} · {order.warehouseName} · {order.date}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+        <span className={order.paymentStatus === 'PAID' ? 'tag tag-neutral' : 'tag tag-outline'}>
+          {order.paymentStatus === 'PAID' ? 'Paid' : 'Unpaid (on credit)'}
+        </span>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 11 }}
+          onClick={() => setPaymentStatus(order.paymentStatus === 'PAID' ? 'UNPAID' : 'PAID')}
+        >
+          Mark {order.paymentStatus === 'PAID' ? 'unpaid' : 'paid'}
+        </button>
       </div>
 
       {order.note && (

@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { CreateOrderRequest, OrderDetail, OrderRow } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../warehouses/inventory.service';
-import { OrderStatus, OrderChannel } from '../../generated/prisma/enums';
+import { OrderStatus, OrderChannel, OrderPaymentStatus } from '../../generated/prisma/enums';
 import type { Prisma } from '../../generated/prisma/client';
 import { expandToFlatLines } from './stock-fulfillment';
 
@@ -88,13 +88,13 @@ export class OrdersService {
   async ship(businessId: string, orderId: string): Promise<OrderDetail> {
     const order = await this.findOwned(businessId, orderId);
     if (order.status !== OrderStatus.PROCESSING) throw new BadRequestException('Only a processing order can be shipped');
-    return this.toDetail(await this.updateStatus(orderId, OrderStatus.SHIPPED));
+    return this.toDetail(await this.updateStatus(orderId, OrderStatus.SHIPPED, { shippedAt: new Date() }));
   }
 
   async deliver(businessId: string, orderId: string): Promise<OrderDetail> {
     const order = await this.findOwned(businessId, orderId);
     if (order.status !== OrderStatus.SHIPPED) throw new BadRequestException('Only a shipped order can be delivered');
-    return this.toDetail(await this.updateStatus(orderId, OrderStatus.DELIVERED));
+    return this.toDetail(await this.updateStatus(orderId, OrderStatus.DELIVERED, { deliveredAt: new Date() }));
   }
 
   async cancel(businessId: string, orderId: string): Promise<OrderDetail> {
@@ -113,17 +113,27 @@ export class OrdersService {
       }
       return tx.order.update({
         where: { id: orderId },
-        data: { status: OrderStatus.CANCELLED },
+        data: { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
         include: { warehouse: true, items: { include: { variant: { include: { product: true } }, returns: true } } },
       });
     });
     return this.toDetail(updated);
   }
 
-  private async updateStatus(orderId: string, status: OrderStatus) {
+  async setPaymentStatus(businessId: string, orderId: string, paymentStatus: OrderPaymentStatus): Promise<OrderDetail> {
+    await this.findOwned(businessId, orderId);
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { paymentStatus },
+      include: { warehouse: true, items: { include: { variant: { include: { product: true } }, returns: true } } },
+    });
+    return this.toDetail(updated);
+  }
+
+  private async updateStatus(orderId: string, status: OrderStatus, extra: Record<string, Date> = {}) {
     return this.prisma.order.update({
       where: { id: orderId },
-      data: { status },
+      data: { status, ...extra },
       include: { warehouse: true, items: { include: { variant: { include: { product: true } }, returns: true } } },
     });
   }
@@ -171,6 +181,7 @@ export class OrdersService {
       channel: order.channel,
       customer: order.customer,
       status: order.status,
+      paymentStatus: order.paymentStatus,
       note: order.note,
       date: order.createdAt.toISOString().slice(0, 10),
       warehouseId: order.warehouseId,
@@ -188,6 +199,7 @@ type OrderWithDetail = {
   channel: OrderChannel;
   customer: string;
   status: OrderStatus;
+  paymentStatus: OrderPaymentStatus;
   note: string | null;
   createdAt: Date;
   warehouseId: string;
@@ -202,7 +214,7 @@ type OrderWithDetail = {
   }[];
 };
 
-function toRow(order: { id: string; number: number; channel: OrderChannel; customer: string; status: OrderStatus; note: string | null; createdAt: Date; items: { qty: number; unitPrice: unknown }[] }): OrderRow {
+function toRow(order: { id: string; number: number; channel: OrderChannel; customer: string; status: OrderStatus; paymentStatus: OrderPaymentStatus; note: string | null; createdAt: Date; items: { qty: number; unitPrice: unknown }[] }): OrderRow {
   const total = order.items.reduce((sum, it) => sum + it.qty * Number(it.unitPrice), 0);
   return {
     id: order.id,
@@ -211,6 +223,7 @@ function toRow(order: { id: string; number: number; channel: OrderChannel; custo
     customer: order.customer,
     totalFmt: `$${total.toFixed(2)}`,
     status: order.status,
+    paymentStatus: order.paymentStatus,
     note: order.note,
     date: order.createdAt.toISOString().slice(0, 10),
     showReturn: order.status === OrderStatus.DELIVERED,

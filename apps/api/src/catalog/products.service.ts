@@ -67,6 +67,7 @@ export class ProductsService {
       ...toSummary(product),
       description: product.description,
       lowStockThreshold: product.lowStockThreshold,
+      taxRatePercent: product.taxRatePercent,
       variants: product.variants.map(toVariantDto),
       bundleComponents: bundleComponents.map((bc) => ({
         id: bc.id,
@@ -109,6 +110,7 @@ export class ProductsService {
         categoryId: dto.categoryId,
         description: dto.description,
         lowStockThreshold: dto.lowStockThreshold,
+        taxRatePercent: dto.taxRatePercent,
       },
     });
     return this.get(businessId, productId);

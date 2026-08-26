@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsArray, IsEnum, IsInt, IsNumber, IsString, Min, MinLength, ValidateNested } from 'class-validator';
-import { OrderChannel } from '../../../generated/prisma/enums';
+import { OrderChannel, OrderPaymentStatus } from '../../../generated/prisma/enums';
 
 class OrderItemDto {
   @IsString()
@@ -30,4 +30,9 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items!: OrderItemDto[];
+}
+
+export class SetPaymentStatusDto {
+  @IsEnum(OrderPaymentStatus)
+  paymentStatus!: OrderPaymentStatus;
 }

@@ -11,6 +11,7 @@ import { statusBadge } from '@/lib/catalog-ui';
 import { batchStatusBadge, serialStatusBadge } from '@/lib/inventory-ui';
 import { AddVariantForm } from './add-variant-form';
 import { LinkedSuppliersSection } from './linked-suppliers-section';
+import { FinancialsSection } from './financials-section';
 
 export default function ProductDetailPage({ params }: PageProps<'/catalog/[productId]'>) {
   const { productId } = use(params);
@@ -27,6 +28,8 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
   const [error, setError] = useState<string | null>(null);
   const [thresholdDraft, setThresholdDraft] = useState('');
   const [thresholdSaved, setThresholdSaved] = useState(false);
+  const [taxRateDraft, setTaxRateDraft] = useState('');
+  const [taxRateSaved, setTaxRateSaved] = useState(false);
 
   const load = async () => {
     if (!effectiveBusinessId) return;
@@ -36,6 +39,7 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
       });
       setProduct(p);
       setThresholdDraft(String(p.lowStockThreshold));
+      setTaxRateDraft(String(p.taxRatePercent));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load product');
       return;
@@ -71,6 +75,22 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
       load();
     } catch {
       setError('Failed to save threshold');
+    }
+  }
+
+  async function saveTaxRate() {
+    if (!effectiveBusinessId) return;
+    try {
+      await apiFetch<ProductDetail>(`/businesses/${effectiveBusinessId}/products/${productId}`, {
+        method: 'PATCH',
+        body: { taxRatePercent: Number(taxRateDraft) || 0 },
+        token: accessToken,
+      });
+      setTaxRateSaved(true);
+      setTimeout(() => setTaxRateSaved(false), 2000);
+      load();
+    } catch {
+      setError('Failed to save tax rate');
     }
   }
 
@@ -148,7 +168,7 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
         </div>
         <div>
           <h4 style={{ marginBottom: 10 }}>Low-stock threshold</h4>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
             <div className="field" style={{ maxWidth: 120 }}>
               <label>Reorder below</label>
               <input className="input" type="number" value={thresholdDraft} onChange={(e) => setThresholdDraft(e.target.value)} />
@@ -157,6 +177,18 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
               Save
             </button>
             {thresholdSaved && <span className="tag tag-neutral">Saved</span>}
+          </div>
+
+          <h4 style={{ marginBottom: 10 }}>Tax rate</h4>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <div className="field" style={{ maxWidth: 120 }}>
+              <label>GST / sales tax %</label>
+              <input className="input" type="number" min="0" value={taxRateDraft} onChange={(e) => setTaxRateDraft(e.target.value)} />
+            </div>
+            <button className="btn btn-secondary" onClick={saveTaxRate}>
+              Save
+            </button>
+            {taxRateSaved && <span className="tag tag-neutral">Saved</span>}
           </div>
         </div>
       </div>
@@ -265,13 +297,10 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
-        <PlaceholderCard title="Landed cost" note="Base cost, freight & duty roll-up lands in Phase 7 (Financials)." />
-        <PlaceholderCard title="Stock valuation" note="FIFO / LIFO / weighted-average valuation lands in Phase 7 (Financials)." />
-      </div>
+      {effectiveBusinessId && <FinancialsSection businessId={effectiveBusinessId} productId={productId} />}
 
       {effectiveBusinessId && <LinkedSuppliersSection businessId={effectiveBusinessId} productId={productId} />}
-      <PlaceholderCard title="Stock movement history" note="The full stock ledger lands alongside Financials (Phase 7) — warehouse-level moves are visible now via Warehouses → Transfers." />
+      <PlaceholderCard title="Stock movement history" note="A unified per-unit ledger (sales, receipts, transfers, counts in one timeline) isn't built as its own screen — the pieces exist across Warehouses → Transfers, Purchase Orders, and Financials → Transaction log." />
     </div>
   );
 }
