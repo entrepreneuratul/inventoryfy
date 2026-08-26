@@ -350,6 +350,19 @@ single source of truth for stock; a connected storefront never owns it.
   storefront's brief restart, but a real deployment would want this on a
   durable retry queue instead of in-process retries that vanish on an API
   restart.
+- **A storefront can cancel its own order.**
+  `POST /integrations/v1/orders/cancel` (`{ orderId }`, Inventoryfy's own
+  order id — the same one `orders` returned) reuses `OrdersService.cancel()`
+  directly, so restocking follows the exact same rules as cancelling from
+  inside Inventoryfy itself. Scoped to the calling connection — an
+  `orderId` belonging to a different connection 404s, never leaking
+  whether it exists. Exists so a storefront can release stock for its
+  *own* abandoned/failed checkouts (e.g. Ritkalp's
+  `app/api/cron/release-stale-orders/route.ts`) without needing a real
+  Inventoryfy login — order creation and cancellation are the two things
+  a storefront legitimately needs to do on its own; catalog writes still
+  require an authenticated business login (see `sync-inventoryfy.ts`),
+  deliberately not exposed to the API key.
 - **No module cycle, on purpose.** Stock-mutating services (Orders,
   Returns, PurchaseOrders, Inventory) and `IntegrationsService` never
   import each other — they'd form a cycle (Warehouses → Integrations →

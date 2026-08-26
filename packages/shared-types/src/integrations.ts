@@ -34,7 +34,7 @@ export interface CreateIntegrationConnectionResult {
 }
 
 export type IntegrationDirection = 'INBOUND' | 'OUTBOUND';
-export type IntegrationEventType = 'ORDER_RECEIVED' | 'INVENTORY_UPDATED';
+export type IntegrationEventType = 'ORDER_RECEIVED' | 'ORDER_CANCELLED' | 'INVENTORY_UPDATED';
 export type IntegrationEventStatus = 'SUCCESS' | 'FAILED';
 
 export interface IntegrationEventRow {
@@ -76,6 +76,18 @@ export interface ReceiveExternalOrderResult {
   displayId: string;
   status: string;
   accepted: boolean;
+}
+
+/** Lets a storefront cancel an order *it created* — e.g. releasing stock
+ * for an abandoned/failed checkout — without needing a real Inventoryfy
+ * login. `orderId` is Inventoryfy's own order id, the same one returned
+ * in `ReceiveExternalOrderResult.orderId` when the order was created —
+ * the storefront already has it, no need to also persist its own
+ * externalOrderId just to cancel later. Scoped to the calling
+ * connection: an orderId belonging to a *different* connection 404s,
+ * same as if it didn't exist. */
+export interface CancelExternalOrderRequest {
+  orderId: string;
 }
 
 /** The body Inventoryfy POSTs to a connection's webhookUrl whenever stock

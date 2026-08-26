@@ -41,3 +41,9 @@ export class ReceiveExternalOrderDto {
   @Type(() => ExternalOrderItemDto)
   items!: ExternalOrderItemDto[];
 }
+
+export class CancelExternalOrderDto {
+  @IsString()
+  @MinLength(1)
+  orderId!: string;
+}

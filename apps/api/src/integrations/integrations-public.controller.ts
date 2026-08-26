@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { IntegrationsService } from './integrations.service';
-import { ReceiveExternalOrderDto } from './dto/integration.dto';
+import { CancelExternalOrderDto, ReceiveExternalOrderDto } from './dto/integration.dto';
 import { IntegrationApiKeyGuard } from './guards/integration-api-key.guard';
 import type { IntegrationConnection } from '../../generated/prisma/client';
 
@@ -23,5 +23,10 @@ export class IntegrationsPublicController {
   @Post('orders')
   receiveOrder(@Req() req: Request & { integrationConnection: IntegrationConnection }, @Body() dto: ReceiveExternalOrderDto) {
     return this.integrations.receiveOrder(req.integrationConnection, dto);
+  }
+
+  @Post('orders/cancel')
+  cancelOrder(@Req() req: Request & { integrationConnection: IntegrationConnection }, @Body() dto: CancelExternalOrderDto) {
+    return this.integrations.cancelOrder(req.integrationConnection, dto.orderId);
   }
 }

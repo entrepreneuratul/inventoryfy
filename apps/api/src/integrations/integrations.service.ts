@@ -184,6 +184,28 @@ export class IntegrationsService implements OnModuleInit {
     return { orderId: order.id, displayId: order.displayId, status: order.status, accepted: true };
   }
 
+  /** Lets a storefront cancel an order *it created* (e.g. releasing
+   * stock for an abandoned/failed checkout) without a real Inventoryfy
+   * login — reuses OrdersService.cancel(), so restocking follows the
+   * exact same rules as cancelling from the app itself (only a
+   * PROCESSING/SHIPPED order actually restores stock; a BACKORDERED one
+   * had nothing decremented to restore). Scoped to the calling
+   * connection: orderId belonging to a *different* connection (or not
+   * an integration order at all) 404s, same as if it didn't exist —
+   * never leaks whether some other connection's order id is valid. */
+  async cancelOrder(connection: IntegrationConnection, orderId: string): Promise<ReceiveExternalOrderResult> {
+    const existing = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!existing || existing.sourceConnectionId !== connection.id) {
+      await this.logEvent(connection, IntegrationDirection.INBOUND, IntegrationEventType.ORDER_CANCELLED, IntegrationEventStatus.FAILED, { orderId }, 'No order found for this connection');
+      throw new NotFoundException('No order found for this connection');
+    }
+
+    const cancelled = await this.orders.cancel(connection.businessId, existing.id);
+    await this.logEvent(connection, IntegrationDirection.INBOUND, IntegrationEventType.ORDER_CANCELLED, IntegrationEventStatus.SUCCESS, { orderId }, null);
+
+    return { orderId: cancelled.id, displayId: cancelled.displayId, status: cancelled.status, accepted: true };
+  }
+
   // ─── Outbound dispatch ─────────────────────────────────────────────
 
   private async dispatchStockChanged(businessId: string, variantId: string): Promise<void> {

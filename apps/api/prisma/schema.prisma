@@ -692,6 +692,7 @@ enum IntegrationDirection {
 
 enum IntegrationEventType {
   ORDER_RECEIVED
+  ORDER_CANCELLED
   INVENTORY_UPDATED
 }
 

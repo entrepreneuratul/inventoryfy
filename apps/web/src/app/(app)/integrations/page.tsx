@@ -234,7 +234,13 @@ export default function IntegrationsPage() {
                 <td className="text-muted">{new Date(e.createdAt).toLocaleString()}</td>
                 <td>{e.connectionName}</td>
                 <td className="text-muted">{e.direction === 'INBOUND' ? 'In ←' : 'Out →'}</td>
-                <td className="text-muted">{e.eventType === 'ORDER_RECEIVED' ? 'Order received' : 'Inventory updated'}</td>
+                <td className="text-muted">
+                  {e.eventType === 'ORDER_RECEIVED'
+                    ? 'Order received'
+                    : e.eventType === 'ORDER_CANCELLED'
+                      ? 'Order cancelled'
+                      : 'Inventory updated'}
+                </td>
                 <td>
                   <span className={e.status === 'SUCCESS' ? 'tag tag-neutral' : 'tag tag-outline'} title={e.errorMessage ?? undefined}>
                     {e.status === 'SUCCESS' ? 'Success' : 'Failed'}
