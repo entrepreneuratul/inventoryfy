@@ -1,6 +1,9 @@
 // Inventoryfy — Prisma schema
-// Phase 1: tenancy skeleton only (Business, User, Membership).
-// Domain tables (catalog, warehouses, orders, etc.) are added in later phases.
+// Phase 1: tenancy skeleton (Business, User, Membership).
+// Phase 3: catalog (Category, Product, ProductVariant, BundleComponent).
+// Every domain table carries `businessId` directly (denormalized, not just
+// via joins) — this is the pattern later phases (warehouses, orders, POs)
+// keep using so BusinessAccessGuard-style tenant scoping stays cheap.
 
 generator client {
   provider = "prisma-client"
@@ -25,6 +28,9 @@ model Business {
   updatedAt DateTime @updatedAt
 
   memberships Membership[]
+  categories  Category[]
+  products    Product[]
+  variants    ProductVariant[]
 
   @@map("businesses")
 }
@@ -73,4 +79,81 @@ model Membership {
 
   @@unique([userId, businessId])
   @@map("memberships")
+}
+
+// ─── Catalog (Phase 3) ───────────────────────────────────────────────────
+
+model Category {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([businessId, name])
+  @@map("categories")
+}
+
+model Product {
+  id     String  @id @default(cuid())
+  businessId String
+  name       String
+  categoryId String?
+  description String?
+  imageUrl    String?
+  /// Kits: selling one unit deducts each BundleComponent's own stock instead
+  /// of tracking stock on the bundle itself.
+  isBundle          Boolean  @default(false)
+  lowStockThreshold Int      @default(10)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants ProductVariant[]
+
+  /// Components this product is made of, when it's a bundle/kit.
+  bundleComponents BundleComponent[] @relation("BundleParent")
+  /// Bundles this product is used as a component of.
+  usedInBundles    BundleComponent[] @relation("BundleComponentProduct")
+
+  @@index([businessId])
+  @@map("products")
+}
+
+/// Every product has at least one variant — a simple (non-variant) product
+/// gets a single "Default" variant so SKU/price/stock always live in one
+/// place rather than two parallel code paths.
+model ProductVariant {
+  id         String   @id @default(cuid())
+  businessId String
+  productId  String
+  label      String   @default("Default")
+  sku        String
+  price      Decimal  @default(0) @db.Decimal(12, 2)
+  stock      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, sku])
+  @@map("product_variants")
+}
+
+model BundleComponent {
+  id                  String @id @default(cuid())
+  bundleProductId     String
+  componentProductId  String
+  qty                 Int    @default(1)
+
+  bundleProduct    Product @relation("BundleParent", fields: [bundleProductId], references: [id], onDelete: Cascade)
+  componentProduct Product @relation("BundleComponentProduct", fields: [componentProductId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleProductId, componentProductId])
+  @@map("bundle_components")
 }

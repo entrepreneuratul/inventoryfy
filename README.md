@@ -81,6 +81,22 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   route — this is what every future domain module (catalog, orders, POs,
   ...) sits behind.
 
+## Catalog model
+
+- Every `Product` has ≥1 `ProductVariant` (simple products get a single
+  "Default" variant) — SKU/price/stock always live on the variant, never
+  duplicated across two code paths. Product-level stock is the sum across
+  variants; SKU shown at the product level is the first variant's.
+- Bundles (`isBundle: true`) list their components via `BundleComponent`
+  (component product + qty) — selling one bundle unit is meant to deduct
+  each component's own stock (wired up once Orders exist, Phase 6).
+- `lowStockThreshold` drives status: `OUT_OF_STOCK` / `LOW_STOCK` /
+  `IN_STOCK`, computed server-side.
+- CSV export/import and the product detail screen's warehouse stock,
+  batches/serials, landed cost, valuation, suppliers, and stock ledger
+  sections are **placeholders** — those need Warehouses (Phase 4),
+  Suppliers/POs (Phase 5), and Financials (Phase 7) to have real data.
+
 ## Status
 
 Building phase by phase — see the implementation plan for the full
@@ -90,3 +106,4 @@ Integrations/Deploy).
 
 **Phase 1 (Foundations): done.**
 **Phase 2 (Auth & Multi-Tenancy): done.**
+**Phase 3 (Catalog): done.**

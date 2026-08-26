@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronDown, LayoutDashboard, Layers, LogOut } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ChevronDown, LayoutDashboard, Layers, LogOut, Package } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { ThemeToggle } from './theme-toggle';
 
@@ -12,7 +12,10 @@ import { ThemeToggle } from './theme-toggle';
 const NAV_SECTIONS = [
   {
     title: 'General',
-    items: [{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }],
+    items: [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Catalog', href: '/catalog', icon: Package },
+    ],
   },
 ];
 
@@ -27,6 +30,7 @@ function initials(name: string) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, role, businesses, activeBusinessId, setActiveBusinessId, logout } = useAuth();
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
@@ -73,30 +77,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {sec.title}
               </div>
-              {sec.items.map((item) => (
-                <button
-                  key={item.href}
-                  className="mf-nav-btn"
-                  onClick={() => router.push(item.href)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    width: '100%',
-                    padding: '9px 10px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--color-text)',
-                    font: 'inherit',
-                    fontSize: 14,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <item.icon size={16} style={{ flex: 'none' }} />
-                  <span className="mf-label">{item.label}</span>
-                </button>
-              ))}
+              {sec.items.map((item) => {
+                const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                return (
+                  <button
+                    key={item.href}
+                    className="mf-nav-btn"
+                    onClick={() => router.push(item.href)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      width: '100%',
+                      padding: '9px 10px',
+                      border: 'none',
+                      background: active ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'transparent',
+                      color: active ? 'var(--color-accent-700)' : 'var(--color-text)',
+                      fontWeight: active ? 700 : 400,
+                      font: 'inherit',
+                      fontSize: 14,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <item.icon size={16} style={{ flex: 'none' }} />
+                    <span className="mf-label">{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </nav>
