@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Demo Storefront</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f6f5f2;
+    color: #1a1a1a;
+  }
+  header {
+    padding: 20px 28px;
+    background: #14213d;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  #sync-status { font-size: 12px; opacity: 0.75; }
+  main { max-width: 880px; margin: 0 auto; padding: 28px; display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid #e4e1d8; border-radius: 10px; padding: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 6px; border-bottom: 1px solid #eeece5; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; }
+  .stock { font-weight: 700; }
+  .stock.low { color: #c0392b; }
+  button {
+    background: #14213d;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:hover:not(:disabled) { background: #1f2f5c; }
+  .activity-line { font-size: 12.5px; padding: 8px 0; border-bottom: 1px solid #eeece5; }
+  .activity-line .t { color: #999; display: block; font-size: 11px; }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #666; margin: 0 0 12px; }
+  .flash { animation: flash 900ms ease; }
+  @keyframes flash { 0% { background: #fff4d6; } 100% { background: transparent; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="store-name">Demo Storefront</h1>
+  <span id="sync-status">—</span>
+</header>
+<main>
+  <section class="card">
+    <h2>Catalog</h2>
+    <table>
+      <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+      <tbody id="catalog-body"></tbody>
+    </table>
+  </section>
+  <section class="card">
+    <h2>Activity</h2>
+    <div id="activity-body"></div>
+  </section>
+</main>
+<script>
+  let lastStockBySku = {};
+
+  async function refresh() {
+    const res = await fetch('/api/state');
+    const state = await res.json();
+
+    document.getElementById('store-name').textContent = state.storeName;
+    document.getElementById('sync-status').textContent = state.lastSyncedAt
+      ? 'Last synced ' + new Date(state.lastSyncedAt).toLocaleTimeString()
+      : 'Not synced yet';
+
+    const body = document.getElementById('catalog-body');
+    body.innerHTML = '';
+    for (const item of state.items) {
+      const changed = lastStockBySku[item.sku] !== undefined && lastStockBySku[item.sku] !== item.availableStock;
+      lastStockBySku[item.sku] = item.availableStock;
+
+      const tr = document.createElement('tr');
+      if (changed) tr.className = 'flash';
+      tr.innerHTML =
+        '<td>' + item.name + '</td>' +
+        '<td>$' + item.price.toFixed(2) + '</td>' +
+        '<td class="stock' + (item.availableStock <= 5 ? ' low' : '') + '">' + item.availableStock + '</td>' +
+        '<td><button ' + (item.availableStock < 1 ? 'disabled' : '') + ' data-sku="' + item.sku + '">Buy 1</button></td>';
+      body.appendChild(tr);
+    }
+
+    const activityBody = document.getElementById('activity-body');
+    activityBody.innerHTML = state.activity
+      .map((a) => '<div class="activity-line"><span class="t">' + new Date(a.at).toLocaleTimeString() + '</span>' + a.line + '</div>')
+      .join('') || '<div class="activity-line">Nothing yet — buy something.</div>';
+  }
+
+  document.getElementById('catalog-body').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-sku]');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await fetch('/api/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sku: btn.dataset.sku, quantity: 1 }),
+      });
+    } finally {
+      await refresh();
+    }
+  });
+
+  refresh();
+  setInterval(refresh, 1000);
+</script>
+</body>
+</html>

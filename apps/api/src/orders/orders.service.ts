@@ -5,15 +5,25 @@ import { InventoryService } from '../warehouses/inventory.service';
 import { OrderStatus, OrderChannel, OrderPaymentStatus } from '../../generated/prisma/enums';
 import type { Prisma } from '../../generated/prisma/client';
 import { expandToFlatLines } from './stock-fulfillment';
+import { StockChangeEmitter } from '../common/stock-change-emitter';
 
 const FIRST_ORDER_NUMBER = 5001;
 const RESTOCKS_STOCK: OrderStatus[] = [OrderStatus.PROCESSING, OrderStatus.SHIPPED];
+
+/** Set only when an order is created by IntegrationsService on behalf of an
+ * external storefront (Phase 10) — not part of the public CreateOrderRequest
+ * DTO, since a manually-created order in the app never has one. */
+export interface OrderSource {
+  connectionId: string;
+  externalOrderId: string;
+}
 
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly stockEvents: StockChangeEmitter,
   ) {}
 
   async list(businessId: string): Promise<OrderRow[]> {
@@ -30,7 +40,7 @@ export class OrdersService {
     return this.toDetail(order);
   }
 
-  async create(businessId: string, dto: CreateOrderRequest): Promise<OrderDetail> {
+  async create(businessId: string, dto: CreateOrderRequest, source?: OrderSource): Promise<OrderDetail> {
     if (dto.items.length === 0) throw new BadRequestException('An order needs at least one item');
 
     await this.assertWarehouseOwned(businessId, dto.warehouseId);
@@ -54,17 +64,21 @@ export class OrdersService {
             customer: dto.customer,
             warehouseId: dto.warehouseId,
             status: OrderStatus.PROCESSING,
+            sourceConnectionId: source?.connectionId,
+            externalOrderId: source?.externalOrderId,
             items: { create: dto.items.map((it) => ({ variantId: it.variantId, qty: it.qty, unitPrice: it.unitPrice })) },
           },
           include: { warehouse: true, items: { include: { variant: { include: { product: true } }, returns: true } } },
         });
       });
+      this.stockEvents.publishMany(businessId, flatLines.map((l) => l.variantId));
       return this.toDetail(order);
     } catch (err) {
       if (!(err instanceof BadRequestException)) throw err;
       // Not enough stock somewhere in the flattened lines — back-order it
       // instead, with nothing decremented (the failed transaction already
-      // rolled back any partial decrements).
+      // rolled back any partial decrements). Nothing changed, so no stock
+      // event is published here.
       const order = await this.prisma.$transaction(async (tx) => {
         const number = await this.nextNumber(tx, businessId);
         return tx.order.create({
@@ -76,6 +90,8 @@ export class OrdersService {
             warehouseId: dto.warehouseId,
             status: OrderStatus.BACKORDERED,
             note: 'Insufficient stock at fulfillment time',
+            sourceConnectionId: source?.connectionId,
+            externalOrderId: source?.externalOrderId,
             items: { create: dto.items.map((it) => ({ variantId: it.variantId, qty: it.qty, unitPrice: it.unitPrice })) },
           },
           include: { warehouse: true, items: { include: { variant: { include: { product: true } }, returns: true } } },
@@ -104,12 +120,14 @@ export class OrdersService {
     }
 
     const shouldRestore = RESTOCKS_STOCK.includes(order.status);
+    let restoredVariantIds: string[] = [];
     const updated = await this.prisma.$transaction(async (tx) => {
       if (shouldRestore) {
         const flatLines = await expandToFlatLines(this.prisma, order.items.map((it) => ({ variantId: it.variantId, qty: it.qty })));
         for (const line of flatLines) {
           await this.inventory.applyDelta(tx, businessId, order.warehouseId, line.variantId, line.qty);
         }
+        restoredVariantIds = flatLines.map((l) => l.variantId);
       }
       return tx.order.update({
         where: { id: orderId },
@@ -117,6 +135,7 @@ export class OrdersService {
         include: { warehouse: true, items: { include: { variant: { include: { product: true } }, returns: true } } },
       });
     });
+    this.stockEvents.publishMany(businessId, restoredVariantIds);
     return this.toDetail(updated);
   }
 

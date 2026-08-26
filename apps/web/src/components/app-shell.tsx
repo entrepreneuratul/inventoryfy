@@ -15,6 +15,7 @@ import {
   Layers,
   LogOut,
   Package,
+  Plug,
   RotateCcw,
   ScanBarcode,
   ShoppingCart,
@@ -66,6 +67,7 @@ const NAV_SECTIONS = [
       { label: 'Team', href: '/team', icon: Users },
       { label: 'Notifications', href: '/notifications', icon: Bell },
       { label: 'Audit log', href: '/audit', icon: History },
+      { label: 'Integrations', href: '/integrations', icon: Plug },
     ],
   },
 ];

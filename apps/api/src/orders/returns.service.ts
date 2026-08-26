@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../warehouses/inventory.service';
 import { OrderStatus, ReturnStatus } from '../../generated/prisma/enums';
 import { expandToFlatLines } from './stock-fulfillment';
+import { StockChangeEmitter } from '../common/stock-change-emitter';
 
 const FIRST_RETURN_NUMBER = 401;
 
@@ -12,6 +13,7 @@ export class ReturnsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly stockEvents: StockChangeEmitter,
   ) {}
 
   async list(businessId: string): Promise<ReturnRow[]> {
@@ -65,12 +67,14 @@ export class ReturnsService {
     if (dto.restock && !dto.warehouseId) throw new BadRequestException('warehouseId is required to restock');
     if (dto.warehouseId) await this.assertWarehouseOwned(businessId, dto.warehouseId);
 
+    let restockedVariantIds: string[] = [];
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.restock) {
         const flatLines = await expandToFlatLines(this.prisma, [{ variantId: ret.orderItem.variantId, qty: ret.orderItem.qty }]);
         for (const line of flatLines) {
           await this.inventory.applyDelta(tx, businessId, dto.warehouseId!, line.variantId, line.qty);
         }
+        restockedVariantIds = flatLines.map((l) => l.variantId);
       }
       return tx.return.update({
         where: { id: returnId },
@@ -78,6 +82,7 @@ export class ReturnsService {
         include: { orderItem: { include: { order: true, variant: { include: { product: true } } } } },
       });
     });
+    this.stockEvents.publishMany(businessId, restockedVariantIds);
     return toDetail(updated);
   }
 

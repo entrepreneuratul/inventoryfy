@@ -8,10 +8,14 @@ export type Capability =
   | 'MANAGE_SUPPLIERS_POS'
   | 'APPROVE_POS'
   | 'VIEW_FINANCIALS'
-  | 'MANAGE_TEAM';
+  | 'MANAGE_TEAM'
+  | 'MANAGE_INTEGRATIONS';
 
 /** What each team role can access — mirrors the mockup's capability
- * matrix exactly. OWNER always has every capability. */
+ * matrix exactly (MANAGE_INTEGRATIONS added in Phase 10, following the
+ * same OWNER/BUSINESS_ADMIN-only shape as MANAGE_TEAM, since a connection
+ * carries an API key and a callback URL to an external system). OWNER
+ * always has every capability. */
 export const CAPABILITY_MATRIX: Record<Capability, TeamRole[]> = {
   VIEW_DASHBOARD: ['OWNER', 'BUSINESS_ADMIN', 'INVENTORY_MANAGER', 'SALES_STAFF', 'ACCOUNTANT'],
   EDIT_INVENTORY: ['OWNER', 'BUSINESS_ADMIN', 'INVENTORY_MANAGER'],
@@ -19,6 +23,7 @@ export const CAPABILITY_MATRIX: Record<Capability, TeamRole[]> = {
   APPROVE_POS: ['OWNER', 'BUSINESS_ADMIN'],
   VIEW_FINANCIALS: ['OWNER', 'BUSINESS_ADMIN', 'ACCOUNTANT'],
   MANAGE_TEAM: ['OWNER'],
+  MANAGE_INTEGRATIONS: ['OWNER', 'BUSINESS_ADMIN'],
 };
 
 export const CAPABILITY_LABELS: Record<Capability, string> = {
@@ -28,6 +33,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   APPROVE_POS: 'Approve purchase orders',
   VIEW_FINANCIALS: 'View financials',
   MANAGE_TEAM: 'Manage team',
+  MANAGE_INTEGRATIONS: 'Manage integrations',
 };
 
 export const ROLE_LABELS: Record<TeamRole, string> = {

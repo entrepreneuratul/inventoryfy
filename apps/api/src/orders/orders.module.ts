@@ -10,5 +10,6 @@ import { WarehousesModule } from '../warehouses/warehouses.module';
   imports: [AuthModule, WarehousesModule],
   controllers: [OrdersController, ReturnsController],
   providers: [OrdersService, ReturnsService],
+  exports: [OrdersService],
 })
 export class OrdersModule {}

@@ -1,0 +1,16 @@
+{
+  "name": "demo-storefront-b",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A standalone demo e-commerce storefront that syncs stock with Inventoryfy over its public Integrations API — deliberately outside the Inventoryfy pnpm workspace, with its own tiny dependency tree, to prove the integration contract works against something genuinely external.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

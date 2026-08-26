@@ -20,6 +20,11 @@ apps/
 packages/
   design-tokens/   Modernist CSS tokens + component classes (ported from the mockup)
   shared-types/    DTOs/types shared between api and web
+demo-storefronts/
+  storefront-a/    Standalone Node/Express demo storefront — NOT part of
+  storefront-b/     the pnpm workspace, no shared code with api/web. Proves
+                     the Integrations API against something genuinely
+                     external. See "Integrations model" below.
 ```
 
 ## Prerequisites
@@ -284,12 +289,91 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   infrastructure" — there is none yet, and the UI doesn't claim
   otherwise.
 
+## Integrations model
+
+Inventoryfy plugs into independently-run e-commerce storefronts the same
+way a channel connects to a third-party inventory platform like Zoho
+Inventory — not a specific platform's API (Shopify, WooCommerce, ...), a
+generic contract any storefront can implement. Inventoryfy stays the
+single source of truth for stock; a connected storefront never owns it.
+
+- **The contract, both directions.** A storefront registers as an
+  `IntegrationConnection` and gets an API key (inbound auth) and a
+  webhook signing secret (outbound auth) — shown exactly once, the same
+  one-time-reveal pattern as a Team invite's temporary password. Inbound:
+  the storefront `POST`s `/integrations/v1/orders` (SKUs + quantities,
+  keyed by its own `externalOrderId`) whenever it takes a sale; Inventoryfy
+  creates a real `Order` through the same `OrdersService.create()` every
+  other order in the app goes through, so bundle expansion, backorder
+  fallback, and stock decrement are all identical to an order placed
+  in-app — nothing about integration orders is a separate code path.
+  Outbound: any stock change anywhere in Inventoryfy — a sale on another
+  channel, a PO receipt, a return, a manual count — fans out an
+  HMAC-signed `inventory.updated` webhook to every connected storefront
+  within about a second, which is what actually keeps multiple channels
+  from overselling the same unit.
+- **Idempotent inbound, retried outbound.** A redelivered order webhook
+  with the same `externalOrderId` is a no-op (a real unique constraint on
+  `Order.(sourceConnectionId, externalOrderId)`, not just an
+  application-level check), so a storefront can safely retry on timeout
+  without risking a double sale. Outbound delivery retries 3 times with a
+  short backoff before being logged FAILED — enough to ride out a
+  storefront's brief restart, but a real deployment would want this on a
+  durable retry queue instead of in-process retries that vanish on an API
+  restart.
+- **No module cycle, on purpose.** Stock-mutating services (Orders,
+  Returns, PurchaseOrders, Inventory) and `IntegrationsService` never
+  import each other — they'd form a cycle (Warehouses → Integrations →
+  Orders → Warehouses). Both sides instead depend on one small, global,
+  dependency-free `StockChangeEmitter` ([stock-change-emitter.ts](apps/api/src/common/stock-change-emitter.ts)):
+  mutating services publish a variantId *after* their own transaction
+  commits — never from inside `InventoryService.applyDelta` itself,
+  since that runs mid-transaction and the caller's transaction can still
+  roll back afterwards (see `OrdersService.create`'s backorder fallback).
+- **Every sync attempt is logged**, success or failure, in
+  `IntegrationEventLog` — visible on the Integrations page's sync log —
+  same "make failures visible" principle as the Phase 9 audit log. A
+  paused connection's API key is rejected outright (401), not silently
+  ignored.
+- **The two demo storefronts prove the contract, not the platform.**
+  `demo-storefronts/storefront-{a,b}` are standalone Node/Express apps,
+  deliberately outside the pnpm workspace with zero shared code — they
+  only ever speak plain HTTP to Inventoryfy, the same as a real,
+  separately-deployed store would. Run both, sell on one, and watch the
+  other's stock count update on its own within about a second:
+
+  ```bash
+  # Terminal 1 — Inventoryfy API + web already running (see "Running locally")
+
+  # Terminal 2
+  cd apps/api && npx prisma studio # optional, to watch rows change live
+
+  # In the Inventoryfy web app: log in as Owner, go to Integrations, and
+  # create two connections —
+  #   "Storefront A", webhook http://localhost:4001/webhooks/inventory
+  #   "Storefront B", webhook http://localhost:4002/webhooks/inventory
+  # Each create reveals an API key + webhook secret ONCE — copy them into
+  # demo-storefronts/storefront-a/.env and storefront-b/.env respectively
+  # (copy .env.example to .env first in each).
+
+  cd demo-storefronts/storefront-a && npm install && npm run dev   # :4001
+  cd demo-storefronts/storefront-b && npm install && npm run dev   # :4002
+  ```
+
+  Open both storefronts' pages side by side. Buying on one decrements
+  real stock in Inventoryfy, and both storefronts converge on the new
+  number — the one that sold it confirms its own sale, the other learns
+  about it purely from the webhook, with no direct interaction.
+
 ## Status
 
 Building phase by phase — see the implementation plan for the full
 roadmap (Foundations → Auth/Multi-tenancy → Catalog → Warehouses →
 Suppliers/POs → Orders/Returns → Financials → Reports → Team/Audit →
-Integrations/Deploy).
+Integrations → Polish/Deploy). The original Phase 10 ("Integrations,
+Polish & Deploy") turned out to be two phases' worth of work once
+integrations were scoped for real, so it split: Phase 10 is
+Integrations, Phase 11 is Polish & Deploy (Render).
 
 **Phase 1 (Foundations): done.**
 **Phase 2 (Auth & Multi-Tenancy): done.**
@@ -300,3 +384,5 @@ Integrations/Deploy).
 **Phase 7 (Financials): done.**
 **Phase 8 (Reports & Dashboards): done.**
 **Phase 9 (Team, Notifications & Audit): done.**
+**Phase 10 (Integrations): done.**
+**Phase 11 (Polish & Deploy): not started.**

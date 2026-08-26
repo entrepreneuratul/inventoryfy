@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../warehouses/inventory.service';
 import { BillStatus, PoStatus } from '../../generated/prisma/enums';
 import { fmtMoney } from './po-format';
+import { StockChangeEmitter } from '../common/stock-change-emitter';
 
 const PO_COLUMNS: { status: PoStatus; label: string }[] = [
   { status: PoStatus.DRAFT, label: 'Draft' },
@@ -26,6 +27,7 @@ export class PurchaseOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly stockEvents: StockChangeEmitter,
   ) {}
 
   async listColumns(businessId: string): Promise<PoColumn[]> {
@@ -113,11 +115,13 @@ export class PurchaseOrdersService {
       }
     }
 
+    const changedVariantIds: string[] = [];
     await this.prisma.$transaction(async (tx) => {
       for (const line of dto.lines) {
         if (line.receivedQty <= 0) continue;
         const item = itemsById.get(line.itemId)!;
         await this.inventory.applyDelta(tx, businessId, dto.warehouseId, item.variantId, line.receivedQty);
+        changedVariantIds.push(item.variantId);
         await tx.purchaseOrderItem.update({
           where: { id: item.id },
           data: { receivedQty: { increment: line.receivedQty } },
@@ -136,6 +140,7 @@ export class PurchaseOrdersService {
         },
       });
     });
+    this.stockEvents.publishMany(businessId, changedVariantIds);
 
     const refreshed = await this.findOwned(businessId, poId);
     return toDetail(refreshed);

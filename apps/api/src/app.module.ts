@@ -14,12 +14,15 @@ import { ReportsModule } from './reports/reports.module';
 import { TeamModule } from './team/team.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { CommonModule } from './common/stock-change-emitter';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    CommonModule,
     PrismaModule,
     AuthModule,
     BusinessesModule,
@@ -32,6 +35,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     TeamModule,
     AuditModule,
     NotificationsModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

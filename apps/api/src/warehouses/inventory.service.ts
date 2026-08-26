@@ -9,10 +9,14 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { CycleCountStatus } from '../../generated/prisma/enums';
+import { StockChangeEmitter } from '../common/stock-change-emitter';
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stockEvents: StockChangeEmitter,
+  ) {}
 
   // ─── Warehouses ─────────────────────────────────────────────────────
 
@@ -39,6 +43,7 @@ export class InventoryService {
     await this.assertWarehouseOwned(businessId, warehouseId);
     await this.assertVariantOwned(businessId, variantId);
     await this.prisma.$transaction((tx) => this.applyDelta(tx, businessId, warehouseId, variantId, delta));
+    this.stockEvents.publish({ businessId, variantId });
   }
 
   async productWarehouseBreakdown(businessId: string, productId: string): Promise<ProductWarehouseBreakdown> {
@@ -114,6 +119,7 @@ export class InventoryService {
         include: { variant: { include: { product: true } }, fromWarehouse: true, toWarehouse: true },
       });
     });
+    this.stockEvents.publish({ businessId, variantId });
 
     return {
       id: transfer.id,
@@ -186,16 +192,19 @@ export class InventoryService {
     if (count.status !== CycleCountStatus.IN_PROGRESS) throw new BadRequestException('Count is already submitted');
 
     const lines = await this.prisma.cycleCountLine.findMany({ where: { cycleCountId: countId } });
+    const changedVariantIds: string[] = [];
     await this.prisma.$transaction(async (tx) => {
       for (const line of lines) {
         const counted = line.counted ?? line.expected;
         const variance = counted - line.expected;
         if (variance !== 0) {
           await this.applyDelta(tx, businessId, count.warehouseId, line.variantId, variance);
+          changedVariantIds.push(line.variantId);
         }
       }
       await tx.cycleCount.update({ where: { id: countId }, data: { status: CycleCountStatus.COMPLETED, completedAt: new Date() } });
     });
+    this.stockEvents.publishMany(businessId, changedVariantIds);
 
     const refreshed = await this.prisma.cycleCount.findUniqueOrThrow({
       where: { id: countId },

@@ -3,6 +3,9 @@
 // Phase 3: catalog (Category, Product, ProductVariant, BundleComponent).
 // Phase 4: warehouses (Warehouse, WarehouseStock, Transfer, CycleCount,
 // CycleCountLine, Batch, SerialNumber).
+// Phase 10: integrations (IntegrationConnection, IntegrationEventLog,
+// Order.sourceConnectionId/externalOrderId) — external storefronts sync
+// stock with Inventoryfy over a webhook/API-key contract.
 // Every domain table carries `businessId` directly (denormalized, not just
 // via joins) — this is the pattern later phases (warehouses, orders, POs)
 // keep using so BusinessAccessGuard-style tenant scoping stays cheap.
@@ -55,6 +58,8 @@ model Business {
   auditLogEntries        AuditLogEntry[]
   alertChannelSettings   AlertChannelSetting[]
   notificationLogEntries NotificationLogEntry[]
+  integrationConnections IntegrationConnection[]
+  integrationEventLogs   IntegrationEventLog[]
 
   @@map("businesses")
 }
@@ -222,6 +227,9 @@ model Warehouse {
   transfersIn  Transfer[]       @relation("TransferTo")
   orders       Order[]
   returns      Return[]
+  /// Connections that fulfill their incoming external orders from here —
+  /// see IntegrationConnection.defaultWarehouseId.
+  integrationConnections IntegrationConnection[]
 
   @@map("warehouses")
 }
@@ -461,17 +469,29 @@ model Order {
   paymentStatus OrderPaymentStatus @default(PAID)
   note          String?
   warehouseId   String
+  /// Set when this order was created by an external storefront via the
+  /// Integrations API (Phase 10) rather than from inside Inventoryfy.
+  /// Both null for every order created in-app, which is what makes them
+  /// distinct from `undefined` in the @@unique below — Postgres treats
+  /// NULL as never equal to NULL, so ordinary orders never collide.
+  sourceConnectionId String?
+  externalOrderId    String?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   shippedAt     DateTime?
   deliveredAt   DateTime?
   cancelledAt   DateTime?
 
-  business  Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  warehouse Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  items     OrderItem[]
+  business         Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  warehouse        Warehouse              @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  sourceConnection IntegrationConnection? @relation(fields: [sourceConnectionId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
 
   @@unique([businessId, number])
+  /// Idempotency for the inbound integration webhook: a retried delivery
+  /// with the same externalOrderId from the same connection is a no-op,
+  /// not a duplicate order.
+  @@unique([sourceConnectionId, externalOrderId])
   @@map("orders")
 }
 
@@ -619,4 +639,85 @@ model NotificationLogEntry {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@map("notification_log_entries")
+}
+
+// ─── Integrations (Phase 10) ──────────────────────────────────────────────
+// A registered external storefront — an independently-run e-commerce app,
+// not part of this codebase — syncs stock with Inventoryfy the same way a
+// channel connects to Zoho Inventory: Inventoryfy issues an API key the
+// storefront calls in with (inbound orders), and stores a webhook URL +
+// signing secret Inventoryfy calls back out on (outbound stock changes).
+// Inventoryfy is the single source of truth; the storefront never owns
+// stock itself.
+
+enum IntegrationConnectionStatus {
+  ACTIVE
+  PAUSED
+}
+
+model IntegrationConnection {
+  id         String                       @id @default(cuid())
+  businessId String
+  name       String
+  status     IntegrationConnectionStatus  @default(ACTIVE)
+  /// SHA-256 of the plaintext API key — only the hash is ever stored. The
+  /// plaintext is shown once at creation time, the same pattern as a
+  /// GitHub/Stripe API key.
+  apiKeyHash     String @unique
+  /// Last 4 characters of the plaintext key, kept only so the owner can
+  /// tell connections apart later ("sk_live_...ab12").
+  apiKeyLastFour String
+  webhookUrl     String
+  /// Used to HMAC-sign outbound webhook payloads so the storefront can
+  /// verify a delivery actually came from Inventoryfy and not an impostor.
+  webhookSecret String
+  /// Which warehouse this connection's incoming orders are fulfilled
+  /// from — an external storefront has no concept of Inventoryfy's
+  /// warehouses, so this is chosen once at connection time.
+  defaultWarehouseId String
+  createdAt          DateTime @default(now())
+
+  business  Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [defaultWarehouseId], references: [id], onDelete: Restrict)
+  orders    Order[]
+  events    IntegrationEventLog[]
+
+  @@map("integration_connections")
+}
+
+enum IntegrationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum IntegrationEventType {
+  ORDER_RECEIVED
+  INVENTORY_UPDATED
+}
+
+enum IntegrationEventStatus {
+  SUCCESS
+  FAILED
+}
+
+/// One row per inbound order processed or outbound webhook delivery
+/// attempted — the sync log a connection's health is actually judged by,
+/// same "make failures visible" principle as the Phase 9 audit log.
+model IntegrationEventLog {
+  id           String                  @id @default(cuid())
+  businessId   String
+  connectionId String
+  direction    IntegrationDirection
+  eventType    IntegrationEventType
+  status       IntegrationEventStatus
+  payload      Json
+  errorMessage String?
+  attempts     Int                     @default(1)
+  createdAt    DateTime                @default(now())
+
+  business   Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  connection IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@map("integration_event_logs")
 }
