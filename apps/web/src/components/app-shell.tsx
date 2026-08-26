@@ -2,7 +2,20 @@
 
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Barcode, Boxes, ChevronDown, ClipboardList, LayoutDashboard, Layers, LogOut, Package, ScanBarcode, Truck } from 'lucide-react';
+import {
+  Barcode,
+  Boxes,
+  ChevronDown,
+  ClipboardList,
+  LayoutDashboard,
+  Layers,
+  LogOut,
+  Package,
+  RotateCcw,
+  ScanBarcode,
+  ShoppingCart,
+  Truck,
+} from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { ThemeToggle } from './theme-toggle';
 
@@ -28,6 +41,13 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Suppliers', href: '/suppliers', icon: Truck },
       { label: 'Purchase orders', href: '/purchase-orders', icon: ClipboardList },
+    ],
+  },
+  {
+    title: 'Sales',
+    items: [
+      { label: 'Orders', href: '/orders', icon: ShoppingCart },
+      { label: 'Returns', href: '/returns', icon: RotateCcw },
     ],
   },
 ];

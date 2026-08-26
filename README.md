@@ -136,7 +136,34 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
 - `billStatus` (NONE/UNPAID/PARTIAL/PAID) is tracked per PO but is a
   simple manual field for now — real AP/GL accounting lands in Phase 7.
 - Reorder suggestions are threshold-based (current stock ≤
-  `lowStockThreshold`); velocity-based suggestions need Orders (Phase 6).
+  `lowStockThreshold`); velocity-based suggestions need Reports (Phase 8).
+
+## Orders & returns model
+
+- Order status flow: `PROCESSING` → `SHIPPED` → `DELIVERED` (or
+  `CANCELLED` from either of the first two); `BACKORDERED` is a
+  fulfillment-time fallback, not a manual status.
+- Creating an order **flattens bundle line items into their components**
+  (`stock-fulfillment.ts`, shared by orders and returns) before touching
+  stock — selling a kit decrements each component via the same
+  `InventoryService.applyDelta` primitive everything else uses, never the
+  bundle's own (untracked) stock.
+- Stock sufficiency is checked by *attempting* the decrement inside a
+  transaction: if any line goes negative, the transaction rolls back
+  automatically and the order is created as `BACKORDERED` instead, with
+  nothing decremented. Insufficient stock is evaluated per-warehouse
+  (against `WarehouseStock`, not the variant's total-across-warehouses
+  figure) — an order can legitimately backorder even when a product's
+  total stock looks sufficient, if none of it is allocated to the
+  fulfillment warehouse.
+- Cancelling a `PROCESSING`/`SHIPPED` order restores stock via the same
+  flattening logic (reversed); cancelling a `BACKORDERED` order restores
+  nothing, since nothing was ever decremented.
+- Returns (RMA) flow: `REQUESTED` → `APPROVED` → `RECEIVED` →
+  `REFUNDED`, only reachable from a `DELIVERED` order's line item (one
+  return per item). The `RECEIVED` → `REFUNDED` decision is
+  restock-or-scrap; restocking reuses the same bundle-aware stock helper
+  once more, into a warehouse the caller chooses.
 
 ## Status
 
@@ -150,3 +177,4 @@ Integrations/Deploy).
 **Phase 3 (Catalog): done.**
 **Phase 4 (Warehouses & Inventory): done.**
 **Phase 5 (Suppliers & Purchase Orders): done.**
+**Phase 6 (Orders & Returns): done.**
