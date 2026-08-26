@@ -6,6 +6,7 @@ import {
   Barcode,
   Boxes,
   ChevronDown,
+  BarChart3,
   ClipboardList,
   DollarSign,
   LayoutDashboard,
@@ -29,6 +30,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Financials', href: '/financials', icon: DollarSign },
+      { label: 'Reports', href: '/reports', icon: BarChart3 },
     ],
   },
   {

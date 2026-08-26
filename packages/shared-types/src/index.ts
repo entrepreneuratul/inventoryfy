@@ -4,3 +4,5 @@ export * from './warehouses';
 export * from './suppliers';
 export * from './orders';
 export * from './financials';
+export * from './dashboard';
+export * from './reports';

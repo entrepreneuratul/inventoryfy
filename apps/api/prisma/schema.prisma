@@ -51,6 +51,7 @@ model Business {
   purchaseOrders   PurchaseOrder[]
   orders           Order[]
   returns          Return[]
+  scheduledReports ScheduledReport[]
 
   @@map("businesses")
 }
@@ -500,4 +501,33 @@ model Return {
 
   @@unique([businessId, number])
   @@map("returns")
+}
+
+// ─── Reports (Phase 8) ────────────────────────────────────────────────────
+
+enum ReportType {
+  VELOCITY
+  TURNOVER
+  DEAD_STOCK
+}
+
+enum ReportFrequency {
+  WEEKLY
+  MONTHLY
+}
+
+/// A saved "send me this report on a schedule" preference. Persisted for
+/// real, but delivery (the actual email send) is infrastructure that
+/// lands with Notifications (Phase 9) — this just remembers the ask.
+model ScheduledReport {
+  id         String          @id @default(cuid())
+  businessId String
+  reportType ReportType
+  frequency  ReportFrequency
+  email      String
+  createdAt  DateTime        @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_reports")
 }

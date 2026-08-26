@@ -198,6 +198,34 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   same `forBusinesses()` code path — an array of one business is just
   the degenerate case.
 
+## Reports & dashboard model
+
+- **Dashboard** has two real shapes, not one screen with hidden rows:
+  `GET /businesses/:businessId/dashboard` (single business — today's
+  sales, cash position, pending POs/bills, low-stock alerts, a recent-
+  activity feed synthesized from actual recent orders/POs/returns) and
+  owner-only `GET /dashboard/summary` (consolidated banner + a
+  per-business breakdown card, same `RolesGuard`-not-`BusinessAccessGuard`
+  shape as `/financials/summary`).
+- **Cash position** is a simple proxy, not a real ledger: revenue
+  actually collected (paid + delivered, net of refunds) minus what's
+  actually been paid out to suppliers. There's no bank-account model in
+  this app, so this is the two cash-affecting flows it does track.
+- **Sales velocity** = units sold (delivered, net of refunds) in the
+  trailing 30 days, labeled "N units/mo". Best-sellers and dead stock
+  are the same computation sorted in opposite directions — dead stock
+  additionally requires stock on hand (0-stock items aren't "dead",
+  they're sold out).
+- **Turnover** = 30-day revenue ÷ current inventory valuation (reuses
+  `FinancialsService.valuation()` in `WEIGHTED` mode), one row per
+  business. Trend compares this 30-day ratio against the prior 30 days
+  (>10% move = Rising/Falling), the same trend pattern as suppliers'
+  price trend in Phase 5.
+- **Scheduled reports** are persisted for real (`ScheduledReport`) —
+  the ask is genuinely saved and listed back — but actual email
+  delivery is infrastructure that lands with Notifications (Phase 9);
+  the UI says so rather than implying it already sends.
+
 ## Status
 
 Building phase by phase — see the implementation plan for the full
@@ -212,3 +240,4 @@ Integrations/Deploy).
 **Phase 5 (Suppliers & Purchase Orders): done.**
 **Phase 6 (Orders & Returns): done.**
 **Phase 7 (Financials): done.**
+**Phase 8 (Reports & Dashboards): done.**
