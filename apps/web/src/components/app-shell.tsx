@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Barcode, Boxes, ChevronDown, LayoutDashboard, Layers, LogOut, Package, ScanBarcode } from 'lucide-react';
+import { Barcode, Boxes, ChevronDown, ClipboardList, LayoutDashboard, Layers, LogOut, Package, ScanBarcode, Truck } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { ThemeToggle } from './theme-toggle';
 
@@ -21,6 +21,13 @@ const NAV_SECTIONS = [
       { label: 'Warehouses', href: '/warehouses', icon: Boxes },
       { label: 'Batches', href: '/batches', icon: ScanBarcode },
       { label: 'Serials', href: '/serials', icon: Barcode },
+    ],
+  },
+  {
+    title: 'Purchasing',
+    items: [
+      { label: 'Suppliers', href: '/suppliers', icon: Truck },
+      { label: 'Purchase orders', href: '/purchase-orders', icon: ClipboardList },
     ],
   },
 ];

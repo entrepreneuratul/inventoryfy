@@ -204,11 +204,14 @@ export class InventoryService {
     return toDetail(refreshed);
   }
 
-  // ─── Internals ──────────────────────────────────────────────────────
+  // ─── Internals (public within the same transaction — reused by
+  //     PurchaseOrdersService when receiving stock) ────────────────────
 
   /** Applies a signed quantity change to a variant at a warehouse, keeping
-   * ProductVariant.stock (the denormalized total) in sync in the same tx. */
-  private async applyDelta(
+   * ProductVariant.stock (the denormalized total) in sync in the same tx.
+   * Public so other services can fold a stock change into their own
+   * transaction (e.g. receiving a PO line item). */
+  async applyDelta(
     tx: Prisma.TransactionClient,
     businessId: string,
     warehouseId: string,

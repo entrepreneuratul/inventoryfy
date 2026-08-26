@@ -10,6 +10,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { statusBadge } from '@/lib/catalog-ui';
 import { batchStatusBadge, serialStatusBadge } from '@/lib/inventory-ui';
 import { AddVariantForm } from './add-variant-form';
+import { LinkedSuppliersSection } from './linked-suppliers-section';
 
 export default function ProductDetailPage({ params }: PageProps<'/catalog/[productId]'>) {
   const { productId } = use(params);
@@ -269,7 +270,7 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
         <PlaceholderCard title="Stock valuation" note="FIFO / LIFO / weighted-average valuation lands in Phase 7 (Financials)." />
       </div>
 
-      <PlaceholderCard title="Linked suppliers" note="Supplier pricing & lead times land in Phase 5 (Suppliers & POs)." style={{ marginBottom: 28 }} />
+      {effectiveBusinessId && <LinkedSuppliersSection businessId={effectiveBusinessId} productId={productId} />}
       <PlaceholderCard title="Stock movement history" note="The full stock ledger lands alongside Financials (Phase 7) — warehouse-level moves are visible now via Warehouses → Transfers." />
     </div>
   );

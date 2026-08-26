@@ -9,5 +9,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [InventoryController, LotTrackingController],
   providers: [InventoryService, LotTrackingService],
+  exports: [InventoryService],
 })
 export class WarehousesModule {}

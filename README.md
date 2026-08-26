@@ -116,7 +116,27 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
 - Batches (lot + expiry, status `FRESH`/`EXPIRING_SOON`/`EXPIRED`
   computed server-side) and serial numbers (+ warranty) are tracked
   per-variant; both are manually added for now — automatic creation
-  during PO receiving lands in Phase 5.
+  during PO receiving is a natural follow-up, not yet wired in.
+
+## Suppliers & purchase orders model
+
+- PO status flow: `DRAFT` (needs approval) → `SENT` → `PARTIAL` →
+  `RECEIVED` → `CLOSED`. "Approve & send" moves DRAFT→SENT in one step,
+  matching the mockup.
+- Receiving a PO reuses `InventoryService.applyDelta` inside the PO's own
+  transaction — the same stock-adjustment primitive Warehouses uses — so
+  receiving is just "warehouses" plus PO bookkeeping (`receivedQty`),
+  never a second code path for touching stock. Partial receiving is
+  supported (receive across multiple visits); over-receiving past the
+  ordered qty is rejected.
+- Supplier `onTimePercent` and price `trend` are **computed**, not
+  stored: on-time compares `receivedAt` to `expectedDate` on
+  RECEIVED/CLOSED POs; trend compares the average unit cost of a
+  supplier's last two POs (>2% move either way = Rising/Falling).
+- `billStatus` (NONE/UNPAID/PARTIAL/PAID) is tracked per PO but is a
+  simple manual field for now — real AP/GL accounting lands in Phase 7.
+- Reorder suggestions are threshold-based (current stock ≤
+  `lowStockThreshold`); velocity-based suggestions need Orders (Phase 6).
 
 ## Status
 
@@ -129,3 +149,4 @@ Integrations/Deploy).
 **Phase 2 (Auth & Multi-Tenancy): done.**
 **Phase 3 (Catalog): done.**
 **Phase 4 (Warehouses & Inventory): done.**
+**Phase 5 (Suppliers & Purchase Orders): done.**
