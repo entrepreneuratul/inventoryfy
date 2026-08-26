@@ -37,6 +37,7 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 # edit apps/api/.env — set DATABASE_URL to your local Postgres
 cd apps/api && npx prisma migrate dev
+npx prisma db seed   # creates demo accounts, see below
 
 # Web
 cp apps/web/.env.example apps/web/.env.local
@@ -54,6 +55,32 @@ pnpm dev:web      # http://localhost:3000
 
 Check `GET /health` on the API for a DB-connectivity check.
 
+## Demo accounts
+
+Seeded by `prisma db seed` (password is the same for both):
+
+| Role | Email | Password | Business |
+|---|---|---|---|
+| Owner | `owner@inventoryfy.dev` | `password123` | owns both seeded businesses |
+| Staff | `staff@inventoryfy.dev` | `password123` | Northside Hardware |
+
+Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (Wholesale).
+
+## Auth model
+
+- JWT-based; the token carries `{ sub, role, businessId }`, but every
+  request re-checks membership status against the DB (`JwtStrategy`) so a
+  suspended account or revoked business access takes effect immediately
+  instead of waiting out the token's expiry.
+- **Owner** accounts hold an `OWNER` membership on any number of
+  businesses and can switch between them (or an aggregate "Owner View")
+  from the top bar — no re-login required.
+- **Staff** accounts hold a single `STAFF` membership and are fixed to
+  that business for the session.
+- `BusinessAccessGuard` enforces tenant isolation on any `:businessId`-scoped
+  route — this is what every future domain module (catalog, orders, POs,
+  ...) sits behind.
+
 ## Status
 
 Building phase by phase — see the implementation plan for the full
@@ -62,3 +89,4 @@ Suppliers/POs → Orders/Returns → Financials → Reports → Team/Audit →
 Integrations/Deploy).
 
 **Phase 1 (Foundations): done.**
+**Phase 2 (Auth & Multi-Tenancy): done.**

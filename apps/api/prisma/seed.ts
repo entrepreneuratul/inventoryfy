@@ -1,0 +1,89 @@
+import 'dotenv/config';
+import * as bcrypt from 'bcrypt';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient, type Business } from '../generated/prisma/client';
+import { MembershipRole, MembershipStatus } from '../generated/prisma/enums';
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+
+// Demo credentials — printed at the end and documented in README.md.
+// Password is the same for every seeded account, for convenience in dev.
+const DEMO_PASSWORD = 'password123';
+
+async function main() {
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
+  const businessSeeds = [
+    { name: 'Northside Hardware', type: 'Retail' },
+    { name: 'Coastal Wholesale Co.', type: 'Wholesale' },
+  ];
+
+  const businesses: Business[] = [];
+  for (const seed of businessSeeds) {
+    const business = await prisma.business.upsert({
+      where: { id: `seed-${slug(seed.name)}` },
+      update: {},
+      create: { id: `seed-${slug(seed.name)}`, name: seed.name, type: seed.type },
+    });
+    businesses.push(business);
+  }
+
+  const owner = await prisma.user.upsert({
+    where: { email: 'owner@inventoryfy.dev' },
+    update: {},
+    create: { email: 'owner@inventoryfy.dev', name: 'Olivia Owner', passwordHash },
+  });
+
+  for (const business of businesses) {
+    await prisma.membership.upsert({
+      where: { userId_businessId: { userId: owner.id, businessId: business.id } },
+      update: {},
+      create: {
+        userId: owner.id,
+        businessId: business.id,
+        role: MembershipRole.OWNER,
+        status: MembershipStatus.ACTIVE,
+        joinedAt: new Date(),
+      },
+    });
+  }
+
+  const staff = await prisma.user.upsert({
+    where: { email: 'staff@inventoryfy.dev' },
+    update: {},
+    create: { email: 'staff@inventoryfy.dev', name: 'Sam Staff', passwordHash },
+  });
+
+  await prisma.membership.upsert({
+    where: { userId_businessId: { userId: staff.id, businessId: businesses[0].id } },
+    update: {},
+    create: {
+      userId: staff.id,
+      businessId: businesses[0].id,
+      role: MembershipRole.STAFF,
+      status: MembershipStatus.ACTIVE,
+      joinedAt: new Date(),
+    },
+  });
+
+  console.log('\nSeed complete. Demo accounts (all use password: %s):\n', DEMO_PASSWORD);
+  console.log('  Owner  — owner@inventoryfy.dev  (owns both seeded businesses)');
+  console.log(`  Staff  — staff@inventoryfy.dev  (business: ${businesses[0].name})`);
+  console.log('\nBusinesses:');
+  for (const b of businesses) console.log(`  - ${b.name} (${b.id})`);
+}
+
+function slug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
