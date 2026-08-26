@@ -312,6 +312,18 @@ single source of truth for stock; a connected storefront never owns it.
   HMAC-signed `inventory.updated` webhook to every connected storefront
   within about a second, which is what actually keeps multiple channels
   from overselling the same unit.
+- **Bundles report real, computed availability — not their own stale
+  stock column.** A bundle Product's own `ProductVariant.stock` is never
+  meaningful (a bundle sale decrements its components, never its own
+  row — see `stock-fulfillment.ts`'s doc comments), so both the catalog
+  endpoint and the outbound webhook use `computeBundleAvailableStock()`
+  (`min(componentStock ÷ qty needed)` across components) instead. And
+  when a *shared* component's stock changes — one item used by several
+  bundles, e.g. a samagri item used in three different festival kits —
+  every bundle that includes it gets its own recomputed `inventory.updated`
+  event too, not just the component's own SKU. This is what makes a
+  storefront selling bundles (not just flat SKUs) work correctly, not
+  just one selling single products.
 - **Idempotent inbound, retried outbound.** A redelivered order webhook
   with the same `externalOrderId` is a no-op (a real unique constraint on
   `Order.(sourceConnectionId, externalOrderId)`, not just an

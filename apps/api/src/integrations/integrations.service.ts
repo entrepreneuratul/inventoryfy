@@ -10,6 +10,7 @@ import type {
 } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
+import { computeBundleAvailableStock } from '../orders/stock-fulfillment';
 import { StockChangeEmitter } from '../common/stock-change-emitter';
 import {
   IntegrationConnectionStatus,
@@ -130,11 +131,20 @@ export class IntegrationsService implements OnModuleInit {
       include: { product: true },
       orderBy: { createdAt: 'asc' },
     });
+
+    // A bundle's own ProductVariant.stock is never meaningful (see
+    // computeBundleAvailableStock's doc comment) — compute the real,
+    // component-derived number for each bundle product represented here.
+    const bundleProductIds = [...new Set(variants.filter((v) => v.product.isBundle).map((v) => v.productId))];
+    const bundleStock = new Map(
+      await Promise.all(bundleProductIds.map(async (id) => [id, await computeBundleAvailableStock(this.prisma, id)] as const)),
+    );
+
     return variants.map((v) => ({
       sku: v.sku,
       name: v.label && v.label !== 'Default' ? `${v.product.name} — ${v.label}` : v.product.name,
       price: Number(v.price),
-      availableStock: v.stock,
+      availableStock: v.product.isBundle ? (bundleStock.get(v.productId) ?? 0) : v.stock,
     }));
   }
 
@@ -185,15 +195,48 @@ export class IntegrationsService implements OnModuleInit {
     const variant = await this.prisma.productVariant.findUnique({ where: { id: variantId }, include: { product: true } });
     if (!variant) return;
 
-    const payload: InventoryUpdatedWebhookPayload = {
-      eventType: 'inventory.updated',
-      sku: variant.sku,
-      productName: variant.product.name,
-      availableStock: variant.stock,
-      timestamp: new Date().toISOString(),
-    };
+    const payloads: InventoryUpdatedWebhookPayload[] = [
+      {
+        eventType: 'inventory.updated',
+        sku: variant.sku,
+        productName: variant.product.name,
+        availableStock: variant.stock,
+        timestamp: new Date().toISOString(),
+      },
+    ];
 
-    await Promise.all(connections.map((connection) => this.deliverWebhook(connection, payload)));
+    // Cascade to any bundle that includes this variant's product as a
+    // component — a shared component (Ritkalp's कलश, used across three
+    // Kits) going low needs to be visible on every bundle that uses it,
+    // not just on its own SKU. Only cascades if this is the variant a
+    // bundle sale would actually consume (expandToFlatLines always uses
+    // a component product's first variant) — a change to some other
+    // variant of the same product doesn't affect any bundle's math.
+    const firstVariant = await this.prisma.productVariant.findFirst({
+      where: { productId: variant.productId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (firstVariant?.id === variant.id) {
+      const affectedBundleLinks = await this.prisma.bundleComponent.findMany({
+        where: { componentProductId: variant.productId },
+        include: {
+          bundleProduct: { include: { variants: { orderBy: { createdAt: 'asc' }, take: 1 } } },
+        },
+      });
+      for (const link of affectedBundleLinks) {
+        const bundleVariant = link.bundleProduct.variants[0];
+        if (!bundleVariant) continue;
+        payloads.push({
+          eventType: 'inventory.updated',
+          sku: bundleVariant.sku,
+          productName: link.bundleProduct.name,
+          availableStock: await computeBundleAvailableStock(this.prisma, link.bundleProductId),
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    await Promise.all(connections.flatMap((connection) => payloads.map((payload) => this.deliverWebhook(connection, payload))));
   }
 
   private async deliverWebhook(connection: IntegrationConnection, payload: InventoryUpdatedWebhookPayload): Promise<void> {
