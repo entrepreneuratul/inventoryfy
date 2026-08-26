@@ -87,5 +87,12 @@ export interface InventoryUpdatedWebhookPayload {
   sku: string;
   productName: string;
   availableStock: number;
+  /** Inventoryfy is canonical on price too (not just stock) — included
+   * here so a connected storefront's mirrored price never goes stale
+   * after the first sync. Fired on any price OR stock change to this
+   * SKU, despite the event name (kept as "inventory.updated" rather
+   * than introducing a second event type, since a storefront reacts to
+   * both the same way: update its local mirror). */
+  price: number;
   timestamp: string;
 }

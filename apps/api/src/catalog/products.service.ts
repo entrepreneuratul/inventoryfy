@@ -14,6 +14,7 @@ import type {
 } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeBundleAvailableStock } from '../orders/stock-fulfillment';
+import { StockChangeEmitter } from '../common/stock-change-emitter';
 import type { Prisma } from '../../generated/prisma/client';
 
 const PRODUCT_WITH_VARIANTS = {
@@ -27,7 +28,10 @@ type ProductWithVariants = Prisma.ProductGetPayload<typeof PRODUCT_WITH_VARIANTS
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stockEvents: StockChangeEmitter,
+  ) {}
 
   /** Flat "Product — Variant (SKU)" options for pickers (transfers, adjustments, batches, serials). */
   async variantOptions(businessId: string): Promise<VariantOption[]> {
@@ -143,6 +147,12 @@ export class ProductsService {
       where: { id: variantId },
       data: { label: dto.label, sku: dto.sku, price: dto.price, stock: dto.stock },
     });
+    // A direct price or stock edit here (unlike Warehouses' adjustStock,
+    // which already goes through applyDelta -> this same emitter) had no
+    // way to reach a connected storefront until now — Integrations needs
+    // to hear about both, since Inventoryfy is canonical on price too,
+    // not just stock.
+    this.stockEvents.publish({ businessId, variantId });
     return this.get(businessId, productId);
   }
 
@@ -175,6 +185,15 @@ export class ProductsService {
         }),
       ),
     ]);
+    // The bundle's own derived availability just changed (new/different
+    // components) — a connected storefront needs to hear about it
+    // immediately, not wait for some unrelated future component-stock
+    // change to happen to trigger the cascade in dispatchStockChanged.
+    const bundleFirstVariant = await this.prisma.productVariant.findFirst({
+      where: { productId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (bundleFirstVariant) this.stockEvents.publish({ businessId, variantId: bundleFirstVariant.id });
     return this.get(businessId, productId);
   }
 

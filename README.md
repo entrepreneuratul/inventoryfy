@@ -328,6 +328,19 @@ single source of truth for stock; a connected storefront never owns it.
   just the component's own SKU. This is what makes a storefront (or
   Inventoryfy itself) selling bundles work correctly, not just one
   selling single products.
+- **Price changes notify connections too, not just stock.** Since
+  Inventoryfy can be canonical on price for a connected storefront, a
+  direct price *or* stock edit through `ProductsService.updateVariant()`
+  (the Catalog page's variant-edit form — previously silent to any
+  connection, unlike a Warehouses-page stock adjustment, which already
+  went through the same `StockChangeEmitter`) now publishes too. Setting
+  or changing a bundle's components (`setBundleComponents`) publishes
+  the bundle's own SKU directly for the same reason — its derived
+  availability just changed, and waiting for some unrelated future
+  component-stock change to trigger the cascade would leave a
+  freshly-created bundle showing 0 to a connected storefront
+  indefinitely. `InventoryUpdatedWebhookPayload` carries `price` on
+  every event now, not just `availableStock`.
 - **Idempotent inbound, retried outbound.** A redelivered order webhook
   with the same `externalOrderId` is a no-op (a real unique constraint on
   `Order.(sourceConnectionId, externalOrderId)`, not just an
@@ -380,6 +393,18 @@ single source of truth for stock; a connected storefront never owns it.
   real stock in Inventoryfy, and both storefronts converge on the new
   number — the one that sold it confirms its own sale, the other learns
   about it purely from the webhook, with no direct interaction.
+- **A real external app is connected too, not just the demo pair.**
+  ["Ritkalp"](../Ritkalp) — a separate, already-existing Next.js
+  storefront selling festival puja kits — is registered as its own
+  Inventoryfy business (seeded in `prisma/seed.ts`) and connected via
+  the same Integrations contract. Its kits are genuine bundles (a Kit
+  is made of shared samagri `Item`s, exactly like a `BundleComponent`),
+  which is what first exposed both the bundle-availability bug and the
+  price/bundle-notification gaps described above — a flat-SKU-only demo
+  never would have. See Ritkalp's own README for its side of the
+  integration (`scripts/sync-inventoryfy.ts`, its webhook receiver, and
+  how a Kit Builder custom combo decomposes into several real SKU lines
+  server-side).
 
 ## Status
 

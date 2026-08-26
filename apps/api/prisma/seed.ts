@@ -17,6 +17,12 @@ async function main() {
   const businessSeeds = [
     { name: 'Northside Hardware', type: 'Retail' },
     { name: 'Coastal Wholesale Co.', type: 'Wholesale' },
+    // Ritkalp (ritkalp.com) — a real, separately-deployed Next.js storefront
+    // that plugs into this business via the Phase 10 Integrations API.
+    // Same owner account as the demo businesses above, just another
+    // business it owns (Inventoryfy's multi-business-owner model already
+    // supports this — no new signup flow needed).
+    { name: 'Ritkalp', type: 'Ecommerce — Puja Kits' },
   ];
 
   const businesses: Business[] = [];
@@ -28,6 +34,18 @@ async function main() {
     });
     businesses.push(business);
   }
+
+  // Ritkalp needs at least one warehouse to hold real stock — the other
+  // two seeded businesses get theirs created through the app's own UI
+  // during manual testing, but Ritkalp's is created here so its own
+  // one-time catalog-sync script (Ritkalp repo: scripts/sync-inventoryfy.ts)
+  // has something to point at without a manual setup step first.
+  const ritkalp = businesses.find((b) => b.name === 'Ritkalp')!;
+  await prisma.warehouse.upsert({
+    where: { id: 'seed-ritkalp-main' },
+    update: {},
+    create: { id: 'seed-ritkalp-main', businessId: ritkalp.id, name: 'Main Warehouse' },
+  });
 
   const owner = await prisma.user.upsert({
     where: { email: 'owner@inventoryfy.dev' },
@@ -70,7 +88,7 @@ async function main() {
   });
 
   console.log('\nSeed complete. Demo accounts (all use password: %s):\n', DEMO_PASSWORD);
-  console.log('  Owner  — owner@inventoryfy.dev  (owns both seeded businesses)');
+  console.log('  Owner  — owner@inventoryfy.dev  (owns every seeded business)');
   console.log(`  Staff  — staff@inventoryfy.dev  (business: ${businesses[0].name})`);
   console.log('\nBusinesses:');
   for (const b of businesses) console.log(`  - ${b.name} (${b.id})`);

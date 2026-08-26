@@ -195,12 +195,22 @@ export class IntegrationsService implements OnModuleInit {
     const variant = await this.prisma.productVariant.findUnique({ where: { id: variantId }, include: { product: true } });
     if (!variant) return;
 
+    // Normally only a real (non-bundle) variant is ever published here —
+    // but ProductsService.setBundleComponents also publishes the
+    // bundle's own variant directly (its derived availability just
+    // changed), so this needs the same computed-not-raw-column handling
+    // catalog() already has.
+    const ownAvailableStock = variant.product.isBundle
+      ? await computeBundleAvailableStock(this.prisma, variant.productId)
+      : variant.stock;
+
     const payloads: InventoryUpdatedWebhookPayload[] = [
       {
         eventType: 'inventory.updated',
         sku: variant.sku,
         productName: variant.product.name,
-        availableStock: variant.stock,
+        availableStock: ownAvailableStock,
+        price: Number(variant.price),
         timestamp: new Date().toISOString(),
       },
     ];
@@ -231,6 +241,7 @@ export class IntegrationsService implements OnModuleInit {
           sku: bundleVariant.sku,
           productName: link.bundleProduct.name,
           availableStock: await computeBundleAvailableStock(this.prisma, link.bundleProductId),
+          price: Number(bundleVariant.price),
           timestamp: new Date().toISOString(),
         });
       }
