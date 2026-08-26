@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronDown, LayoutDashboard, Layers, LogOut, Package } from 'lucide-react';
+import { Barcode, Boxes, ChevronDown, LayoutDashboard, Layers, LogOut, Package, ScanBarcode } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { ThemeToggle } from './theme-toggle';
 
@@ -12,9 +12,15 @@ import { ThemeToggle } from './theme-toggle';
 const NAV_SECTIONS = [
   {
     title: 'General',
+    items: [{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'Inventory',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Catalog', href: '/catalog', icon: Package },
+      { label: 'Warehouses', href: '/warehouses', icon: Boxes },
+      { label: 'Batches', href: '/batches', icon: ScanBarcode },
+      { label: 'Serials', href: '/serials', icon: Barcode },
     ],
   },
 ];

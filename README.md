@@ -92,10 +92,31 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   each component's own stock (wired up once Orders exist, Phase 6).
 - `lowStockThreshold` drives status: `OUT_OF_STOCK` / `LOW_STOCK` /
   `IN_STOCK`, computed server-side.
-- CSV export/import and the product detail screen's warehouse stock,
-  batches/serials, landed cost, valuation, suppliers, and stock ledger
-  sections are **placeholders** — those need Warehouses (Phase 4),
-  Suppliers/POs (Phase 5), and Financials (Phase 7) to have real data.
+- CSV export/import and the product detail screen's landed cost,
+  valuation, suppliers, and stock ledger sections remain **placeholders**
+  — those need Suppliers/POs (Phase 5) and Financials (Phase 7).
+  Warehouse stock, batches, and serials are real as of Phase 4.
+
+## Warehouses & inventory model
+
+- `WarehouseStock` (warehouse × variant → qty) is the source of truth for
+  "where is this stock"; `ProductVariant.stock` is a denormalized total
+  kept in sync by every mutating op (`adjust`, transfer, cycle-count
+  submit) inside the same DB transaction.
+- Stock that predates any warehouse — or a variant nobody has allocated
+  yet — has no `WarehouseStock` row. It's surfaced as **Unallocated** on
+  the product page rather than hidden, so totals always reconcile.
+- Transfers are atomic and instant (decrement source + increment
+  destination in one transaction); an over-transfer is rejected with a
+  clear 400 rather than going negative.
+- Cycle counts snapshot `expected` qty per variant when started
+  (`counted` defaults to `expected`); submitting applies the variance
+  (`counted - expected`) as a stock adjustment and marks the count
+  `COMPLETED`. Only one count can be in progress per warehouse at a time.
+- Batches (lot + expiry, status `FRESH`/`EXPIRING_SOON`/`EXPIRED`
+  computed server-side) and serial numbers (+ warranty) are tracked
+  per-variant; both are manually added for now — automatic creation
+  during PO receiving lands in Phase 5.
 
 ## Status
 
@@ -107,3 +128,4 @@ Integrations/Deploy).
 **Phase 1 (Foundations): done.**
 **Phase 2 (Auth & Multi-Tenancy): done.**
 **Phase 3 (Catalog): done.**
+**Phase 4 (Warehouses & Inventory): done.**

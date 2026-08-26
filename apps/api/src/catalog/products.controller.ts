@@ -29,6 +29,11 @@ export class ProductsController {
     return this.products.list(businessId, search);
   }
 
+  @Get('variant-options')
+  variantOptions(@Param('businessId') businessId: string) {
+    return this.products.variantOptions(businessId);
+  }
+
   @Get('export')
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="catalog.csv"')

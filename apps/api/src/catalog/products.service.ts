@@ -10,6 +10,7 @@ import type {
   StockStatus,
   UpdateProductRequest,
   UpdateVariantRequest,
+  VariantOption,
 } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
@@ -26,6 +27,16 @@ type ProductWithVariants = Prisma.ProductGetPayload<typeof PRODUCT_WITH_VARIANTS
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Flat "Product — Variant (SKU)" options for pickers (transfers, adjustments, batches, serials). */
+  async variantOptions(businessId: string): Promise<VariantOption[]> {
+    const variants = await this.prisma.productVariant.findMany({
+      where: { businessId },
+      include: { product: true },
+      orderBy: [{ product: { name: 'asc' } }, { label: 'asc' }],
+    });
+    return variants.map((v) => ({ id: v.id, sku: v.sku, label: v.label, productName: v.product.name }));
+  }
 
   async list(businessId: string, search?: string): Promise<ProductSummary[]> {
     const products = await this.prisma.product.findMany({

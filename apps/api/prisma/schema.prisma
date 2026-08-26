@@ -1,9 +1,18 @@
 // Inventoryfy — Prisma schema
 // Phase 1: tenancy skeleton (Business, User, Membership).
 // Phase 3: catalog (Category, Product, ProductVariant, BundleComponent).
+// Phase 4: warehouses (Warehouse, WarehouseStock, Transfer, CycleCount,
+// CycleCountLine, Batch, SerialNumber).
 // Every domain table carries `businessId` directly (denormalized, not just
 // via joins) — this is the pattern later phases (warehouses, orders, POs)
 // keep using so BusinessAccessGuard-style tenant scoping stays cheap.
+//
+// Stock model: ProductVariant.stock is a denormalized total kept in sync
+// with WarehouseStock (the per-warehouse source of truth) by every mutating
+// operation (adjust, transfer, cycle-count submit) in the same transaction.
+// Stock that predates any warehouse existing (or a variant nobody has
+// allocated yet) has no WarehouseStock row — it's surfaced as "Unallocated"
+// wherever the per-warehouse breakdown is shown, rather than hidden.
 
 generator client {
   provider = "prisma-client"
@@ -27,10 +36,16 @@ model Business {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships Membership[]
-  categories  Category[]
-  products    Product[]
-  variants    ProductVariant[]
+  memberships     Membership[]
+  categories      Category[]
+  products        Product[]
+  variants        ProductVariant[]
+  warehouses      Warehouse[]
+  warehouseStocks WarehouseStock[]
+  transfers       Transfer[]
+  cycleCounts     CycleCount[]
+  batches         Batch[]
+  serialNumbers   SerialNumber[]
 
   @@map("businesses")
 }
@@ -98,12 +113,12 @@ model Category {
 }
 
 model Product {
-  id     String  @id @default(cuid())
-  businessId String
-  name       String
-  categoryId String?
-  description String?
-  imageUrl    String?
+  id                String   @id @default(cuid())
+  businessId        String
+  name              String
+  categoryId        String?
+  description       String?
+  imageUrl          String?
   /// Kits: selling one unit deducts each BundleComponent's own stock instead
   /// of tracking stock on the bundle itself.
   isBundle          Boolean  @default(false)
@@ -111,8 +126,8 @@ model Product {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   variants ProductVariant[]
 
   /// Components this product is made of, when it's a bundle/kit.
@@ -141,19 +156,153 @@ model ProductVariant {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  warehouseStocks WarehouseStock[]
+  transfers       Transfer[]
+  countLines      CycleCountLine[]
+  batches         Batch[]
+  serialNumbers   SerialNumber[]
+
   @@unique([businessId, sku])
   @@map("product_variants")
 }
 
 model BundleComponent {
-  id                  String @id @default(cuid())
-  bundleProductId     String
-  componentProductId  String
-  qty                 Int    @default(1)
+  id                 String @id @default(cuid())
+  bundleProductId    String
+  componentProductId String
+  qty                Int    @default(1)
 
   bundleProduct    Product @relation("BundleParent", fields: [bundleProductId], references: [id], onDelete: Cascade)
   componentProduct Product @relation("BundleComponentProduct", fields: [componentProductId], references: [id], onDelete: Cascade)
 
   @@unique([bundleProductId, componentProductId])
   @@map("bundle_components")
+}
+
+// ─── Warehouses & inventory (Phase 4) ────────────────────────────────────
+
+model Warehouse {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business     Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  stockLevels  WarehouseStock[]
+  cycleCounts  CycleCount[]
+  transfersOut Transfer[]       @relation("TransferFrom")
+  transfersIn  Transfer[]       @relation("TransferTo")
+
+  @@map("warehouses")
+}
+
+/// Per-warehouse quantity for a variant — the source of truth for "where is
+/// this stock". ProductVariant.stock is kept as a denormalized total.
+model WarehouseStock {
+  id          String @id @default(cuid())
+  businessId  String
+  warehouseId String
+  variantId   String
+  qty         Int    @default(0)
+
+  business  Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, variantId])
+  @@map("warehouse_stock")
+}
+
+enum TransferStatus {
+  COMPLETED
+}
+
+model Transfer {
+  id              String         @id @default(cuid())
+  businessId      String
+  variantId       String
+  fromWarehouseId String
+  toWarehouseId   String
+  qty             Int
+  status          TransferStatus @default(COMPLETED)
+  createdAt       DateTime       @default(now())
+
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  variant       ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  fromWarehouse Warehouse      @relation("TransferFrom", fields: [fromWarehouseId], references: [id], onDelete: Cascade)
+  toWarehouse   Warehouse      @relation("TransferTo", fields: [toWarehouseId], references: [id], onDelete: Cascade)
+
+  @@map("transfers")
+}
+
+enum CycleCountStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model CycleCount {
+  id          String           @id @default(cuid())
+  businessId  String
+  warehouseId String
+  status      CycleCountStatus @default(IN_PROGRESS)
+  createdAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  business  Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  lines     CycleCountLine[]
+
+  @@map("cycle_counts")
+}
+
+model CycleCountLine {
+  id           String @id @default(cuid())
+  cycleCountId String
+  variantId    String
+  expected     Int
+  counted      Int?
+
+  cycleCount CycleCount     @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  variant    ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleCountId, variantId])
+  @@map("cycle_count_lines")
+}
+
+model Batch {
+  id         String    @id @default(cuid())
+  businessId String
+  variantId  String
+  lotCode    String
+  qty        Int
+  expiryDate DateTime?
+  createdAt  DateTime  @default(now())
+
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  variant  ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@map("batches")
+}
+
+enum SerialStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
+}
+
+model SerialNumber {
+  id            String       @id @default(cuid())
+  businessId    String
+  variantId     String
+  serial        String
+  status        SerialStatus @default(IN_STOCK)
+  warrantyUntil DateTime?
+  createdAt     DateTime     @default(now())
+
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  variant  ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, serial])
+  @@map("serial_numbers")
 }

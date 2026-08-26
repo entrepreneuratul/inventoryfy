@@ -1,23 +1,28 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import type { ProductDetail } from '@inventoryfy/shared-types';
+import type { BatchRow, ProductDetail, ProductWarehouseBreakdown, SerialRow } from '@inventoryfy/shared-types';
 import { useAuth } from '@/components/auth-provider';
 import { apiFetch, ApiError } from '@/lib/api';
 import { statusBadge } from '@/lib/catalog-ui';
+import { batchStatusBadge, serialStatusBadge } from '@/lib/inventory-ui';
 import { AddVariantForm } from './add-variant-form';
 
 export default function ProductDetailPage({ params }: PageProps<'/catalog/[productId]'>) {
   const { productId } = use(params);
   const router = useRouter();
-  const { accessToken, role, businesses, activeBusinessId } = useAuth();
+  const { accessToken, businesses, activeBusinessId } = useAuth();
 
   const effectiveBusinessId = activeBusinessId ?? businesses[0]?.id ?? null;
   const effectiveBusinessName = businesses.find((b) => b.id === effectiveBusinessId)?.name ?? '';
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [warehouseStock, setWarehouseStock] = useState<ProductWarehouseBreakdown | null>(null);
+  const [batches, setBatches] = useState<BatchRow[]>([]);
+  const [serials, setSerials] = useState<SerialRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [thresholdDraft, setThresholdDraft] = useState('');
   const [thresholdSaved, setThresholdSaved] = useState(false);
@@ -32,7 +37,19 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
       setThresholdDraft(String(p.lowStockThreshold));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load product');
+      return;
     }
+    apiFetch<ProductWarehouseBreakdown>(`/businesses/${effectiveBusinessId}/products/${productId}/warehouse-stock`, {
+      token: accessToken,
+    })
+      .then(setWarehouseStock)
+      .catch(() => setWarehouseStock(null));
+    apiFetch<BatchRow[]>(`/businesses/${effectiveBusinessId}/batches?productId=${productId}`, { token: accessToken })
+      .then(setBatches)
+      .catch(() => setBatches([]));
+    apiFetch<SerialRow[]>(`/businesses/${effectiveBusinessId}/serials?productId=${productId}`, { token: accessToken })
+      .then(setSerials)
+      .catch(() => setSerials([]));
   };
 
   useEffect(() => {
@@ -90,7 +107,44 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
-        <PlaceholderCard title="Stock across warehouses" note="Per-warehouse breakdown lands in Phase 4 (Warehouses). Total stock shown above sums every variant." />
+        <div>
+          <h4 style={{ marginBottom: 10 }}>Stock across warehouses</h4>
+          {warehouseStock ? (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Warehouse</th>
+                  <th>Units</th>
+                </tr>
+              </thead>
+              <tbody>
+                {warehouseStock.warehouses.map((w) => (
+                  <tr key={w.warehouseId}>
+                    <td>{w.warehouseName}</td>
+                    <td>{w.qty}</td>
+                  </tr>
+                ))}
+                {warehouseStock.unallocated > 0 && (
+                  <tr>
+                    <td className="text-muted">Unallocated</td>
+                    <td className="text-muted">{warehouseStock.unallocated}</td>
+                  </tr>
+                )}
+                {warehouseStock.warehouses.length === 0 && warehouseStock.unallocated === 0 && (
+                  <tr>
+                    <td colSpan={2} className="text-muted">
+                      No stock recorded yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <span className="text-muted" style={{ fontSize: 13 }}>
+              Loading…
+            </span>
+          )}
+        </div>
         <div>
           <h4 style={{ marginBottom: 10 }}>Low-stock threshold</h4>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
@@ -160,8 +214,54 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
-        <PlaceholderCard title="Batches / lots" note="Lot + expiry tracking lands in Phase 4 (Warehouses)." />
-        <PlaceholderCard title="Serial numbers" note="Serial + warranty tracking lands in Phase 4 (Warehouses)." />
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h4 style={{ marginBottom: 0 }}>Batches / lots</h4>
+            <Link href="/batches" className="btn btn-ghost" style={{ fontSize: 11, padding: 0 }}>
+              Manage →
+            </Link>
+          </div>
+          {batches.length === 0 ? (
+            <span className="text-muted" style={{ fontSize: 13 }}>
+              None tracked for this product yet.
+            </span>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {batches.map((b) => {
+                const bBadge = batchStatusBadge(b.status);
+                return (
+                  <span key={b.id} className={bBadge.cls}>
+                    {b.lotCode} · {b.qty} units {b.expiryDate ? `· exp ${b.expiryDate}` : ''}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h4 style={{ marginBottom: 0 }}>Serial numbers</h4>
+            <Link href="/serials" className="btn btn-ghost" style={{ fontSize: 11, padding: 0 }}>
+              Manage →
+            </Link>
+          </div>
+          {serials.length === 0 ? (
+            <span className="text-muted" style={{ fontSize: 13 }}>
+              None tracked for this product yet.
+            </span>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {serials.map((s) => {
+                const sBadge = serialStatusBadge(s.status);
+                return (
+                  <span key={s.id} className={sBadge.cls}>
+                    {s.serial}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
@@ -170,7 +270,7 @@ export default function ProductDetailPage({ params }: PageProps<'/catalog/[produ
       </div>
 
       <PlaceholderCard title="Linked suppliers" note="Supplier pricing & lead times land in Phase 5 (Suppliers & POs)." style={{ marginBottom: 28 }} />
-      <PlaceholderCard title="Stock movement history" note="The full stock ledger lands alongside Warehouses (Phase 4) and Financials (Phase 7)." />
+      <PlaceholderCard title="Stock movement history" note="The full stock ledger lands alongside Financials (Phase 7) — warehouse-level moves are visible now via Warehouses → Transfers." />
     </div>
   );
 }
