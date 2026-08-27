@@ -26,7 +26,13 @@ services:
     # webhook or checkout call). Bump to `starter` once that matters for
     # real traffic; free is the right default while validating this.
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @inventoryfy/api exec prisma migrate deploy && pnpm --filter @inventoryfy/api build
+    # --prod=false is load-bearing: NODE_ENV=production (below) is present
+    # during the build too, and pnpm's default behavior under
+    # NODE_ENV=production is to skip devDependencies entirely — which is
+    # where the `prisma` CLI lives (a real runtime dependency of the
+    # build/migrate step, even though it's not needed at actual runtime).
+    # Without this flag: "Command 'prisma' not found".
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter @inventoryfy/api exec prisma migrate deploy && pnpm --filter @inventoryfy/api build
     startCommand: node dist/src/main.js
     envVars:
       - key: NODE_ENV
