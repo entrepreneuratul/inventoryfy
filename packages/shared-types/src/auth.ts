@@ -40,6 +40,13 @@ export interface LoginResponse extends MeResponse {
 export interface LoginRequest {
   email: string;
   password: string;
-  role: MembershipRole;
+  /** Both optional — the normal landing-page/login-screen flow just
+   * sends email+password and lets the server figure out whether this
+   * person is an OWNER (possibly of several businesses) or STAFF of
+   * exactly one, same as AuthService.buildProfile already resolves for
+   * /auth/me on every request. Still accepted explicitly for the rare
+   * case a person is STAFF at more than one business (genuinely
+   * ambiguous without picking one) — see AuthService.login. */
+  role?: MembershipRole;
   businessId?: string;
 }

@@ -33,3 +33,24 @@ export class AssignOwnerDto {
   @IsEmail()
   email!: string;
 }
+
+export class SubmitOnboardingLeadDto {
+  @IsString()
+  @MinLength(1)
+  businessName!: string;
+
+  @IsString()
+  @MinLength(1)
+  contactName!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  message?: string;
+}

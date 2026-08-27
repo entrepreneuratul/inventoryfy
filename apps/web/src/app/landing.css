@@ -1,0 +1,418 @@
+/* =====================================================================
+ * LANDING PAGE — styles scoped under `.landing` so nothing here ever
+ * leaks into the authenticated app shell. Built entirely on top of the
+ * shared design tokens (@inventoryfy/design-tokens/tokens.css) — same
+ * colors, same Archivo type, same sharp (0-radius) "Modernist" edges as
+ * the rest of the product, so logging in doesn't feel like landing on
+ * a different app. Animation is plain CSS (keyframes + an
+ * IntersectionObserver-driven reveal class, see components/reveal.tsx)
+ * — no extra animation library, matching this app's minimal-deps style.
+ * ===================================================================== */
+
+.landing {
+  position: relative;
+  overflow-x: clip;
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* ---- Ambient animated background --------------------------------- */
+
+.landing-blobs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .landing-blob {
+    opacity: 0.22;
+  }
+}
+:root[data-theme='dark'] .landing-blob {
+  opacity: 0.22;
+}
+
+.landing-blob-1 {
+  width: 46vw;
+  height: 46vw;
+  top: -14vw;
+  left: -10vw;
+  background: var(--color-accent);
+  animation: drift1 26s ease-in-out infinite;
+}
+.landing-blob-2 {
+  width: 38vw;
+  height: 38vw;
+  bottom: -12vw;
+  right: -8vw;
+  background: var(--color-accent-2);
+  animation: drift2 32s ease-in-out infinite;
+}
+.landing-blob-3 {
+  width: 26vw;
+  height: 26vw;
+  top: 32vh;
+  right: 12vw;
+  background: var(--color-accent-400);
+  animation: drift3 22s ease-in-out infinite;
+}
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6vw, 8vh) scale(1.12); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-5vw, -6vh) scale(1.08); }
+}
+@keyframes drift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-4vw, 5vh) scale(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-blob { animation: none !important; }
+  .reveal { transition: none !important; opacity: 1 !important; transform: none !important; }
+  .landing-hero-title span, .landing-hero-kicker, .landing-hero-sub, .landing-hero-ctas { animation: none !important; opacity: 1 !important; }
+}
+
+/* ---- Layout shell --------------------------------------------------- */
+
+.landing-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px clamp(20px, 5vw, 64px);
+  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--color-bg) 78%, transparent);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.landing-brand {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.landing-nav-links a {
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 14px;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+.landing-nav-links a:hover { opacity: 1; }
+
+.landing-section {
+  padding: clamp(56px, 9vw, 120px) clamp(20px, 5vw, 64px);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ---- Hero ------------------------------------------------------------ */
+
+.landing-hero {
+  padding-top: clamp(72px, 12vw, 140px);
+  padding-bottom: clamp(56px, 8vw, 100px);
+  text-align: center;
+}
+
+.landing-hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-divider);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 24px;
+  animation: fadeUp 0.7s ease both;
+}
+
+.landing-hero-title {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
+  font-size: clamp(38px, 6.4vw, 84px);
+  max-width: 15ch;
+  margin: 0 auto 22px;
+}
+.landing-hero-title .accent {
+  background: linear-gradient(100deg, var(--color-accent) 0%, var(--color-accent-2) 60%, var(--color-accent-400) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fadeUp 0.7s ease both, shimmer 6s linear infinite 0.7s;
+}
+
+.landing-hero-sub {
+  font-size: clamp(15px, 2vw, 19px);
+  color: var(--color-text);
+  opacity: 0.75;
+  max-width: 56ch;
+  margin: 0 auto 36px;
+  animation: fadeUp 0.7s ease 0.12s both;
+}
+
+.landing-hero-ctas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  animation: fadeUp 0.7s ease 0.22s both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Scrolling capability strip */
+.landing-marquee {
+  margin-top: clamp(48px, 7vw, 84px);
+  border-top: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
+  padding: 16px 0;
+  overflow: hidden;
+  animation: fadeUp 0.7s ease 0.3s both;
+}
+.landing-marquee-track {
+  display: flex;
+  gap: 48px;
+  width: max-content;
+  animation: marquee 28s linear infinite;
+}
+.landing-marquee-track span {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ---- Reveal-on-scroll ------------------------------------------------ */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Section headers --------------------------------------------- */
+
+.landing-section-kicker {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 10px;
+}
+.landing-section-title {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: clamp(26px, 4vw, 42px);
+  max-width: 20ch;
+  margin-bottom: 14px;
+}
+.landing-section-sub {
+  opacity: 0.72;
+  max-width: 60ch;
+  font-size: 15px;
+}
+
+/* ---- Feature grid ------------------------------------------------- */
+
+.landing-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1px;
+  background: var(--color-divider);
+  border: 1px solid var(--color-divider);
+  margin-top: 40px;
+}
+
+.landing-feature-card {
+  background: var(--color-bg);
+  padding: 28px 24px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.landing-feature-card:hover {
+  background: var(--color-surface);
+  transform: translateY(-3px);
+}
+.landing-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+.landing-feature-title {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.landing-feature-body {
+  font-size: 13.5px;
+  opacity: 0.75;
+  line-height: 1.55;
+}
+
+/* ---- Integration diagram ------------------------------------------ */
+
+.landing-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 48px;
+  flex-wrap: wrap;
+}
+.landing-diagram-node {
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  padding: 20px 26px;
+  text-align: center;
+  min-width: 160px;
+}
+.landing-diagram-node strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.landing-diagram-node span {
+  font-size: 12px;
+  opacity: 0.65;
+}
+.landing-diagram-node.accent {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+.landing-diagram-link {
+  position: relative;
+  width: 90px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--color-accent) 0 8px, transparent 8px 14px);
+  background-size: 200% 100%;
+  animation: flowRight 1.6s linear infinite;
+}
+@keyframes flowRight {
+  from { background-position: 0 0; }
+  to { background-position: -22px 0; }
+}
+
+/* ---- Request access form ------------------------------------------ */
+
+.landing-form-card {
+  max-width: 620px;
+  margin: 40px auto 0;
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  padding: clamp(24px, 4vw, 40px);
+}
+.landing-form-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.landing-form-row .field { flex: 1; min-width: 200px; }
+
+.landing-success {
+  text-align: center;
+  padding: 20px 0;
+}
+.landing-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ---- Footer --------------------------------------------------------- */
+
+.landing-footer {
+  border-top: 1px solid var(--color-divider);
+  padding: 28px clamp(20px, 5vw, 64px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+@media (max-width: 640px) {
+  .landing-nav-links { display: none; }
+}
+
+/* Below this, three 160px+ nodes + two 90px links no longer fit in one
+   row without an awkward wrap — switch to a vertical stack instead of
+   letting flex-wrap overlap them. */
+@media (max-width: 860px) {
+  .landing-diagram { flex-direction: column; }
+  .landing-diagram-link { width: 2px; height: 32px; background: repeating-linear-gradient(180deg, var(--color-accent) 0 8px, transparent 8px 14px); animation: flowDown 1.6s linear infinite; }
+  @keyframes flowDown { from { background-position: 0 0; } to { background-position: 0 -22px; } }
+}

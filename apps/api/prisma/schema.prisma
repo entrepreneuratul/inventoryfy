@@ -729,3 +729,31 @@ model IntegrationEventLog {
   @@index([businessId, createdAt])
   @@map("integration_event_logs")
 }
+
+/// A prospective customer's "I want in" request from the public landing
+/// page (see PlatformModule) — deliberately NOT auto-onboarded. Landing
+/// only captures the request and emails both the prospect (confirmation)
+/// and the platform operator (so a human decides, then completes the
+/// actual onboarding through the Super Owner Tenants screen). Kept as a
+/// real row, not just a fired-and-forgotten email, so a request survives
+/// even if email delivery fails or nobody's watching their inbox that day.
+model OnboardingLead {
+  id           String            @id @default(cuid())
+  businessName String
+  contactName  String
+  email        String
+  phone        String?
+  message      String?
+  status       OnboardingLeadStatus @default(NEW)
+  createdAt    DateTime          @default(now())
+
+  @@index([status, createdAt])
+  @@map("onboarding_leads")
+}
+
+enum OnboardingLeadStatus {
+  NEW
+  CONTACTED
+  ONBOARDED
+  DISMISSED
+}

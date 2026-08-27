@@ -8,12 +8,6 @@ import { BusinessAccessGuard } from '../auth/guards/business-access.guard';
 export class BusinessesController {
   constructor(private readonly businesses: BusinessesService) {}
 
-  /** Unauthenticated — powers the login screen's staff "Business" select. */
-  @Get()
-  findAllPublic() {
-    return this.businesses.findAllPublic();
-  }
-
   /** Tenant-isolated detail lookup — proves BusinessAccessGuard end to end. */
   @UseGuards(JwtAuthGuard, BusinessAccessGuard)
   @Get(':businessId')

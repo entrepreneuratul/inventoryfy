@@ -16,6 +16,7 @@ import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { PlatformModule } from './platform/platform.module';
+import { EmailModule } from './email/email.module';
 import { CommonModule } from './common/stock-change-emitter';
 
 @Module({
@@ -38,6 +39,7 @@ import { CommonModule } from './common/stock-change-emitter';
     NotificationsModule,
     IntegrationsModule,
     PlatformModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

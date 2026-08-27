@@ -50,3 +50,30 @@ export interface AssignOwnerResult {
    * than a brand-new grant. */
   promoted: boolean;
 }
+
+// ─── Onboarding leads — the public landing page's "request access" form ──
+// Unauthenticated on the way in (POST), Super-Owner-only on the way out
+// (GET) — see OnboardingController. Never auto-onboards anything; it's a
+// notification + a queue for a human to act on via the Tenants screen
+// above.
+
+export type OnboardingLeadStatus = 'NEW' | 'CONTACTED' | 'ONBOARDED' | 'DISMISSED';
+
+export interface SubmitOnboardingLeadRequest {
+  businessName: string;
+  contactName: string;
+  email: string;
+  phone?: string;
+  message?: string;
+}
+
+export interface OnboardingLeadRow {
+  id: string;
+  businessName: string;
+  contactName: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+  status: OnboardingLeadStatus;
+  createdAt: string;
+}
