@@ -128,7 +128,7 @@ export class IntegrationsService implements OnModuleInit {
   async catalog(connection: IntegrationConnection): Promise<ExternalCatalogItem[]> {
     const variants = await this.prisma.productVariant.findMany({
       where: { businessId: connection.businessId },
-      include: { product: true },
+      include: { product: { include: { category: true } } },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -145,6 +145,8 @@ export class IntegrationsService implements OnModuleInit {
       name: v.label && v.label !== 'Default' ? `${v.product.name} — ${v.label}` : v.product.name,
       price: Number(v.price),
       availableStock: v.product.isBundle ? (bundleStock.get(v.productId) ?? 0) : v.stock,
+      isBundle: v.product.isBundle,
+      category: v.product.category?.name ?? null,
     }));
   }
 

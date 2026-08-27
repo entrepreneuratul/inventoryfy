@@ -56,6 +56,17 @@ export interface ExternalCatalogItem {
   name: string;
   price: number;
   availableStock: number;
+  /** True for a bundle/kit product (its own stock is derived from
+   * components, not stocked directly) — lets a connected storefront tell
+   * plain products apart from bundles without guessing from the SKU or
+   * name, e.g. when pulling newly-added Inventoryfy products in as new
+   * local catalog rows. */
+  isBundle: boolean;
+  /** The product's Inventoryfy category name, or null if uncategorized.
+   * Useful for a storefront that maps categories to its own grouping
+   * (e.g. one category per festival/collection) when deciding where a
+   * newly-fetched product belongs locally. */
+  category: string | null;
 }
 
 export interface ExternalOrderItem {
