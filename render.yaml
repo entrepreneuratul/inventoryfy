@@ -1,42 +1,39 @@
-# Render Blueprint — deploy config stub (Phase 1). Not deployed yet; wired
-# up for real in Phase 10 once every domain module exists. Kept here early
-# so the repo layout (rootDir per service) is settled from the start.
+# Render Blueprint — Inventoryfy's API only.
+#
+# Cost-minimization decision (see README's "Deploy" section for the full
+# reasoning): only the NestJS API actually needs Render's persistent-
+# process model — it depends on an in-process pub/sub
+# (apps/api/src/common/stock-change-emitter.ts) and async webhook-retry
+# timers that assume the process stays alive between requests, neither
+# of which survive on a serverless platform without real rework.
+# Everything else in this repo is plain Next.js and costs nothing extra
+# to run on Vercel instead:
+#   - apps/web (the admin dashboard) → Vercel, same account as any
+#     storefront apps, one Pro seat covers unlimited projects.
+#   - The database → Neon (free tier + scale-to-zero), not Render's own
+#     managed Postgres — that would be a second flat recurring cost for
+#     no benefit over an external connection string.
 #
 # Docs: https://render.com/docs/blueprint-spec
-
-databases:
-  - name: inventoryfy-db
-    plan: starter
-    databaseName: inventoryfy
-    user: inventoryfy
 
 services:
   - type: web
     name: inventoryfy-api
     runtime: node
     rootDir: apps/api
-    plan: starter
+    # Free tier sleeps after 15 min idle (a real cold-start cost on the
+    # first request after — including from a connected storefront's
+    # webhook or checkout call). Bump to `starter` once that matters for
+    # real traffic; free is the right default while validating this.
+    plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @inventoryfy/api exec prisma migrate deploy && pnpm --filter @inventoryfy/api build
     startCommand: node dist/src/main.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: inventoryfy-db
-          property: connectionString
+        sync: false # set to your Neon connection string (pooled, ?sslmode=require)
       - key: WEB_ORIGIN
-        sync: false # set to the deployed inventoryfy-web URL
+        sync: false # set to the deployed Vercel URL for apps/web (and any storefront that needs CORS from the browser directly, though most calls to the Integrations API are server-to-server and don't need this)
       - key: JWT_SECRET
         generateValue: true
-
-  - type: web
-    name: inventoryfy-web
-    runtime: node
-    rootDir: apps/web
-    plan: starter
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @inventoryfy/web build
-    startCommand: pnpm --filter @inventoryfy/web start
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        sync: false # set to the deployed inventoryfy-api URL
