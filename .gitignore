@@ -11,3 +11,8 @@ coverage/
 .pnpm-store/
 apps/api/generated/
 
+# Claude Code — session-local runtime state, not project config
+# (.claude/launch.json IS committed on purpose — shared dev tooling config)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
