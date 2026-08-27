@@ -70,6 +70,13 @@ model User {
   email        String   @unique
   passwordHash String
   name         String
+  /// Platform-operator flag, independent of any per-business Membership
+  /// (see MembershipRole/TeamRole below, which are both business-scoped).
+  /// Lets someone onboard a brand-new tenant Business and grant its
+  /// first OWNER — by definition before any Membership on that business
+  /// exists yet — and reassign/add an owner on an existing one. Nothing
+  /// else in the app checks this; see PlatformModule + SuperOwnerGuard.
+  isSuperOwner Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

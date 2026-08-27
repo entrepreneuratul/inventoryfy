@@ -20,4 +20,7 @@ export interface RequestUser {
   role: MembershipRole;
   teamRole: TeamRole;
   businessId: string | null;
+  /** Re-checked fresh from the User row on every request, same as
+   * teamRole — see JwtStrategy. Not carried in the JWT payload. */
+  isSuperOwner: boolean;
 }

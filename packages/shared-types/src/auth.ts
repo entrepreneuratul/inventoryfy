@@ -13,6 +13,12 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  /** Platform-operator flag — see PlatformModule on the API. Gates a
+   * separate "Tenants" area of the app (onboarding a new business,
+   * assigning its owner), unrelated to `role`/`teamRole` above, which
+   * are both scoped to a single business's own Membership. Almost
+   * always false. */
+  isSuperOwner: boolean;
 }
 
 export interface MeResponse {

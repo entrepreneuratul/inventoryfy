@@ -15,6 +15,7 @@ import { TeamModule } from './team/team.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { PlatformModule } from './platform/platform.module';
 import { CommonModule } from './common/stock-change-emitter';
 
 @Module({
@@ -36,6 +37,7 @@ import { CommonModule } from './common/stock-change-emitter';
     AuditModule,
     NotificationsModule,
     IntegrationsModule,
+    PlatformModule,
   ],
   controllers: [AppController],
   providers: [AppService],

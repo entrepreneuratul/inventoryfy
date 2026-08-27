@@ -6,6 +6,7 @@ import {
   Barcode,
   Bell,
   Boxes,
+  Building2,
   ChevronDown,
   BarChart3,
   ClipboardList,
@@ -88,6 +89,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const isOwner = role === 'OWNER';
+  // Platform-operator-only section — see the API's PlatformModule.
+  // Nothing to do with the per-business OWNER role above; almost every
+  // user, including most owners, never sees this.
+  const navSections = user?.isSuperOwner
+    ? [...NAV_SECTIONS, { title: 'Platform', items: [{ label: 'Tenants', href: '/platform/tenants', icon: Building2 }] }]
+    : NAV_SECTIONS;
   const isOwnerView = isOwner && activeBusinessId === null;
   const currentBiz = businesses.find((b) => b.id === activeBusinessId) ?? null;
   const currentLabel = isOwnerView ? 'Owner View' : (currentBiz?.name ?? '');
@@ -122,7 +129,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="hr" style={{ margin: '0 0 12px' }} />
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px', flex: 1, overflowY: 'auto' }}>
-          {NAV_SECTIONS.map((sec) => (
+          {navSections.map((sec) => (
             <div key={sec.title}>
               <div
                 className="mf-label"

@@ -7,7 +7,7 @@ import { MembershipRole, MembershipStatus, TeamRole } from '../../generated/pris
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload, RequestUser } from './types';
 
-type Identity = Pick<RequestUser, 'id' | 'name' | 'email' | 'role' | 'businessId'>;
+type Identity = Pick<RequestUser, 'id' | 'name' | 'email' | 'role' | 'businessId' | 'isSuperOwner'>;
 
 @Injectable()
 export class AuthService {
@@ -25,8 +25,8 @@ export class AuthService {
 
     const identity: Identity =
       dto.role === MembershipRole.STAFF
-        ? { id: user.id, name: user.name, email: user.email, role: MembershipRole.STAFF, businessId: dto.businessId! }
-        : { id: user.id, name: user.name, email: user.email, role: MembershipRole.OWNER, businessId: null };
+        ? { id: user.id, name: user.name, email: user.email, role: MembershipRole.STAFF, businessId: dto.businessId!, isSuperOwner: user.isSuperOwner }
+        : { id: user.id, name: user.name, email: user.email, role: MembershipRole.OWNER, businessId: null, isSuperOwner: user.isSuperOwner };
 
     // Validates membership status (throws if missing/suspended), flips a
     // first-time INVITED membership to ACTIVE, and builds the business
@@ -62,7 +62,7 @@ export class AuthService {
         });
       }
       return {
-        user: { id: user.id, name: user.name, email: user.email },
+        user: { id: user.id, name: user.name, email: user.email, isSuperOwner: user.isSuperOwner },
         role: 'STAFF',
         teamRole: membership.teamRole,
         businesses: [toBusinessSummary(membership.business)],
@@ -78,7 +78,7 @@ export class AuthService {
       throw new UnauthorizedException('No active owner access to any business');
     }
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, isSuperOwner: user.isSuperOwner },
       role: 'OWNER',
       teamRole: TeamRole.OWNER,
       businesses: memberships.map((m) => toBusinessSummary(m.business)),

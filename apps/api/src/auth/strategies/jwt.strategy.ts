@@ -44,6 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: MembershipRole.STAFF,
         teamRole: membership.teamRole,
         businessId: payload.businessId,
+        isSuperOwner: user.isSuperOwner,
       };
     }
 
@@ -53,6 +54,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
     if (!ownsAny) throw new UnauthorizedException('Owner access is no longer active');
 
-    return { id: user.id, email: user.email, name: user.name, role: MembershipRole.OWNER, teamRole: TeamRole.OWNER, businessId: null };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: MembershipRole.OWNER,
+      teamRole: TeamRole.OWNER,
+      businessId: null,
+      isSuperOwner: user.isSuperOwner,
+    };
   }
 }

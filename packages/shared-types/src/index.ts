@@ -10,3 +10,4 @@ export * from './team';
 export * from './audit';
 export * from './notifications';
 export * from './integrations';
+export * from './platform';
