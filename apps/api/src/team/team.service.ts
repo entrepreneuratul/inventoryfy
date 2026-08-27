@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import type { InviteResult, TeamMemberRow } from '@inventoryfy/shared-types';
+import type { InviteResult, ResetPasswordResult, TeamMemberRow } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { MembershipRole, MembershipStatus, TeamRole } from '../../generated/prisma/enums';
 
@@ -68,6 +68,28 @@ export class TeamService {
       include: { user: true, business: true },
     });
     return toRow(updated);
+  }
+
+  /** Owner-only (enforced at the controller with RolesGuard, not just the
+   * MANAGE_TEAM capability — this is deliberately stricter than the usual
+   * capability gate). Works on any membership row in this business,
+   * including an OWNER-role one — the owner's own row appears in this
+   * same roster, which is exactly how they reset their own password.
+   * Same random-password scheme as invite(), same one-time-reveal
+   * contract: there's no email system to deliver it, so the owner relays
+   * it themselves. */
+  async resetPassword(businessId: string, membershipId: string): Promise<ResetPasswordResult> {
+    const membership = await this.prisma.membership.findUnique({
+      where: { id: membershipId },
+      include: { user: true },
+    });
+    if (!membership || membership.businessId !== businessId) throw new NotFoundException('Team member not found');
+
+    const temporaryPassword = crypto.randomBytes(6).toString('base64url');
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    await this.prisma.user.update({ where: { id: membership.userId }, data: { passwordHash } });
+
+    return { email: membership.user.email, temporaryPassword };
   }
 }
 

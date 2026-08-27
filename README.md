@@ -267,6 +267,18 @@ Businesses seeded: **Northside Hardware** (Retail), **Coastal Wholesale Co.** (W
   locally (`apps/api/src/auth/capability-matrix.ts`, a local const in
   `notifications.service.ts`) with a comment pointing back at the
   shared-types original to keep them in sync by hand.
+- **Password resets are owner-only, deliberately checked twice.** The
+  Team page's "Reset password" action — usable on *any* row in the
+  roster, including the owner's own membership (which appears in this
+  same list, so "reset my own password" and "reset a team member's
+  password" are the same feature, not two) — is gated by both
+  `@RequireCapability('MANAGE_TEAM')` (consistent with the rest of Team)
+  *and* a literal `RolesGuard`/`@Roles(OWNER)` check. Redundant today,
+  since only OWNER carries `MANAGE_TEAM` in the current matrix — but
+  written this way on purpose, so this specific action stays owner-only
+  even if that matrix changes later. Generates a fresh random password
+  (same scheme as inviting a new team member) and shows it exactly
+  once, since there's still no email system to deliver it.
 - **Audit log is a global interceptor, not scattered logging calls.**
   `AuditInterceptor` is registered once via `APP_INTERCEPTOR` and
   fires after every mutating request (`POST`/`PATCH`/`PUT`/`DELETE`)

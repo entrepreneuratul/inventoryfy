@@ -70,3 +70,14 @@ export interface InviteResult {
    * unchanged; this membership just grants them access to this business). */
   temporaryPassword: string | null;
 }
+
+/** Owner-only: generates a fresh random password for a team member —
+ * including the owner's own membership row, which appears in this same
+ * roster. Same one-time-reveal convention as InviteResult — there's no
+ * email infrastructure, so the owner relays it themselves. Unlike
+ * InviteResult, always a real string: a reset always changes the
+ * password, there's no "already existed" case to be null for. */
+export interface ResetPasswordResult {
+  email: string;
+  temporaryPassword: string;
+}
