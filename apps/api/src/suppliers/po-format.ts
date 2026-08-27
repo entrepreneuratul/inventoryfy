@@ -1,6 +1,7 @@
-/** Shared money formatting for supplier/PO responses. Multi-currency
- * formatting proper (per-business currency) lands with Financials (Phase 7);
- * this is a simple USD-style display for now. */
+import { formatCurrency } from '../common/currency';
+
+/** Shared money formatting for supplier/PO responses — see
+ * ../common/currency for the ₹ formatting itself. */
 export function fmtMoney(amount: number): string {
-  return `$${amount.toFixed(2)}`;
+  return formatCurrency(amount);
 }

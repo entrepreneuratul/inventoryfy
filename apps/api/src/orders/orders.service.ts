@@ -6,6 +6,7 @@ import { OrderStatus, OrderChannel, OrderPaymentStatus } from '../../generated/p
 import type { Prisma } from '../../generated/prisma/client';
 import { expandToFlatLines } from './stock-fulfillment';
 import { StockChangeEmitter } from '../common/stock-change-emitter';
+import { formatCurrency } from '../common/currency';
 
 const FIRST_ORDER_NUMBER = 5001;
 const RESTOCKS_STOCK: OrderStatus[] = [OrderStatus.PROCESSING, OrderStatus.SHIPPED];
@@ -207,7 +208,7 @@ export class OrdersService {
       warehouseName: order.warehouse.name,
       items,
       total,
-      totalFmt: `$${total.toFixed(2)}`,
+      totalFmt: formatCurrency(total),
     };
   }
 }
@@ -240,7 +241,7 @@ function toRow(order: { id: string; number: number; channel: OrderChannel; custo
     displayId: `ORD-${order.number}`,
     channel: order.channel,
     customer: order.customer,
-    totalFmt: `$${total.toFixed(2)}`,
+    totalFmt: formatCurrency(total),
     status: order.status,
     paymentStatus: order.paymentStatus,
     note: order.note,

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { BusinessFinancials, GstRow, LandedCost, PnlRow, TransactionRow, ValuationMethod, ValuationResult } from '@inventoryfy/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus, BillStatus, OrderPaymentStatus } from '../../generated/prisma/enums';
+import { formatCurrency as fmt } from '../common/currency';
 
 const FREIGHT_PCT = 0.08;
 const DUTY_PCT = 0.05;
@@ -10,11 +11,6 @@ interface CostLayer {
   qty: number;
   unitCost: number;
   receivedAt: Date;
-}
-
-function fmt(amount: number): string {
-  const sign = amount < 0 ? '-' : '';
-  return `${sign}$${Math.abs(amount).toFixed(2)}`;
 }
 
 @Injectable()
@@ -60,7 +56,7 @@ export class FinancialsService {
         amount += uncovered * fallbackUnitCost;
         note = `${uncovered} unit${uncovered === 1 ? '' : 's'} have no purchase-order cost history — valued at ${fmt(fallbackUnitCost)} each from the linked supplier's quote.`;
       } else {
-        note = `${uncovered} unit${uncovered === 1 ? '' : 's'} have no purchase-order cost history and no linked supplier — valued at $0.`;
+        note = `${uncovered} unit${uncovered === 1 ? '' : 's'} have no purchase-order cost history and no linked supplier — valued at ${fmt(0)}.`;
       }
     }
 

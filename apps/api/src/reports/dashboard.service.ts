@@ -3,6 +3,7 @@ import type { ActivityItem, BusinessCard, LowStockAlertRow, OwnerDashboard, Sing
 import { PrismaService } from '../prisma/prisma.service';
 import { FinancialsService } from '../financials/financials.service';
 import { BillStatus, OrderPaymentStatus, OrderStatus, PoStatus, ReturnStatus } from '../../generated/prisma/enums';
+import { formatCurrency as fmt } from '../common/currency';
 
 @Injectable()
 export class DashboardService {
@@ -156,11 +157,6 @@ export class DashboardService {
       .slice(0, 5)
       .map(({ icon, text, at }) => ({ icon, text, time: relativeTime(at) }));
   }
-}
-
-function fmt(amount: number): string {
-  const sign = amount < 0 ? '-' : '';
-  return `${sign}$${Math.abs(amount).toFixed(2)}`;
 }
 
 function relativeTime(date: Date): string {
